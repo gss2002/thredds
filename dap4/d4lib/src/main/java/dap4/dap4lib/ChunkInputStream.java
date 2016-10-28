@@ -60,6 +60,7 @@ public class ChunkInputStream extends InputStream
 
     protected ByteOrder localorder = null;
     protected ByteOrder remoteorder = null;
+    protected boolean nochecksum = false;
 
     // State info for current chunk
     protected int flags = 0;
@@ -87,14 +88,18 @@ public class ChunkInputStream extends InputStream
 
     public ByteOrder getHostByteOrder()
     {
-        return localorder;
+        return this.localorder;
     }
-
 
     public ByteOrder getRemoteByteOrder()
     {
-        return remoteorder;
+        return this.remoteorder;
     }
+
+    public boolean getNoChecksum()
+        {
+            return this.nochecksum;
+        }
 
     //////////////////////////////////////////////////
 
@@ -144,6 +149,7 @@ public class ChunkInputStream extends InputStream
             // Figure out the endian-ness of the response
             this.remoteorder = (flags & DapUtil.CHUNK_LITTLE_ENDIAN) == 0 ? ByteOrder.BIG_ENDIAN
                     : ByteOrder.LITTLE_ENDIAN;
+            this.nochecksum = (flags & DapUtil.CHUNK_NOCHECKSUM) != 0;
 
             // Set the state
             if((flags & DapUtil.CHUNK_ERROR) != 0)
@@ -328,9 +334,10 @@ public class ChunkInputStream extends InputStream
     /**
      * Read the size+flags header from the input stream and use it to
      * initialize the chunk state
+     *
      * @param input The input streamfrom which to read
      * @return true if header read false if immediate eof encountered
-    */
+     */
 
     boolean
     readHeader(InputStream input)
@@ -341,7 +348,7 @@ public class ChunkInputStream extends InputStream
         if(red == -1) return false;
         if(red < 4)
             throw new IOException("Short binary chunk count");
-        this.flags = ((int)bytehdr[0]) & 0xFF; // Keep unsigned
+        this.flags = ((int) bytehdr[0]) & 0xFF; // Keep unsigned
         bytehdr[0] = 0;
         ByteBuffer buf = ByteBuffer.wrap(bytehdr).order(ByteOrder.BIG_ENDIAN);
         this.chunksize = buf.getInt();

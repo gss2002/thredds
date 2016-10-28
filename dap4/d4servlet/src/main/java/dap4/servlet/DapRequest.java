@@ -3,9 +3,11 @@
 
 package dap4.servlet;
 
+import dap4.core.data.ChecksumMode;
 import dap4.core.util.DapException;
 import dap4.core.util.DapUtil;
 import dap4.core.util.ResponseFormat;
+import dap4.dap4lib.Dap4Util;
 import dap4.dap4lib.DapLog;
 import dap4.dap4lib.RequestMode;
 import dap4.dap4lib.XURI;
@@ -43,9 +45,7 @@ public class DapRequest
 
     static public final String CONSTRAINTTAG = "dap4.ce";
 
-    static public final String DAP4ENDIANTAG = "dap4.bigendian";
-
-    static public final boolean DEFAULTBIGENDIAN = (ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN);
+    static public final ChecksumMode DEFAULTCSUM = ChecksumMode.DAP;
 
     //////////////////////////////////////////////////
     // Instance variables
@@ -65,7 +65,8 @@ public class DapRequest
     protected DapController controller = null;
     protected ServletContext servletcontext = null;
 
-    protected ByteOrder endianness = ByteOrder.nativeOrder();
+    protected ByteOrder order = ByteOrder.nativeOrder();
+    protected ChecksumMode checksummode = null;
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -206,20 +207,22 @@ public class DapRequest
             this.queries = xuri.getQueryFields();
 
         // For testing purposes, get the desired endianness to use with replies
-        String endianness = queryLookup(DAP4ENDIANTAG);
-        if(endianness != null) {
-            boolean isbig = DEFAULTBIGENDIAN;
-            try {
-             int endian = Integer.parseInt(endianness);
-                isbig = (endian != 0);
-            } catch (NumberFormatException e) {
-                isbig = DEFAULTBIGENDIAN;
-            }
-            if(isbig)
-                this.endianness = ByteOrder.BIG_ENDIAN;
+        String p = queryLookup(Dap4Util.DAP4ENDIANTAG);
+        if(p != null) {
+            Integer oz = DapUtil.stringToInteger(p);
+            if(oz == null)
+                this.order = ByteOrder.LITTLE_ENDIAN;
             else
-                this.endianness = ByteOrder.LITTLE_ENDIAN;
+                this.order = (oz != 0 ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN);
         }
+
+        // Ditto for no checksum
+        p = queryLookup(Dap4Util.DAP4CSUMTAG);
+        if(p != null) {
+            this.checksummode = ChecksumMode.modeFor(p);
+        }
+        if(this.checksummode == null)
+            this.checksummode = DEFAULTCSUM;
 
         if(DEBUG) {
             DapLog.debug("DapRequest: controllerpath =" + this.controllerpath);
@@ -231,9 +234,15 @@ public class DapRequest
     //////////////////////////////////////////////////
     // Accessor(s)
 
-    public ByteOrder getByteOrder()
+    public ByteOrder getOrder()
     {
-        return this.endianness;
+        return this.order;
+    }
+
+    public ChecksumMode
+    getChecksumMode()
+    {
+        return this.checksummode;
     }
 
     public ServletContext getContext()

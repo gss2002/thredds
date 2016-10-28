@@ -37,6 +37,8 @@ abstract public class DapUtil // Should only contain static methods
     static final public int CHUNK_END = 1;   // bit 0 : value 1
     static public final int CHUNK_ERROR = 2; // bit 1 : value 1
     static public final int CHUNK_LITTLE_ENDIAN = 4; // bit 2: value 1
+    static public final int CHUNK_NOCHECKSUM = 8; // bit 2: value 1
+
     // Construct the union of all flags
     static final public int CHUNK_ALL
             = CHUNK_DATA | CHUNK_ERROR | CHUNK_END | CHUNK_LITTLE_ENDIAN;
@@ -710,7 +712,7 @@ abstract public class DapUtil // Should only contain static methods
         List<Slice> slices = new ArrayList<>(indices.rank);
         for(int i = 0; i < indices.rank; i++) {
             long isize = indices.indices[i];
-            slices.add(new Slice(isize, isize+1, 1, indices.dimsizes[i]));
+            slices.add(new Slice(isize, isize + 1, 1, indices.dimsizes[i]));
         }
         return slices;
     }
@@ -729,6 +731,16 @@ abstract public class DapUtil // Should only contain static methods
             if(sl.getStride() != 1) return false;
         }
         return true;
+    }
+
+    static public Integer
+    stringToInteger(String s)
+    {
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
 }

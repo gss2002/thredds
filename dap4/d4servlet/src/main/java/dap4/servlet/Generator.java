@@ -5,6 +5,7 @@
 package dap4.servlet;
 
 import dap4.core.ce.CEConstraint;
+import dap4.core.data.ChecksumMode;
 import dap4.core.dmr.*;
 import dap4.core.util.DapException;
 import dap4.core.util.Odometer;
@@ -117,17 +118,10 @@ public class Generator extends DapSerializer
     // Generator
 
     public void
-    generate(CEConstraint ce, ChunkWriter cw)
+    generate(CEConstraint ce, ChunkWriter cw, boolean withdmr, ChecksumMode mode)
             throws DapException
     {
-        generate(ce, cw, true);
-    }
-
-    public void
-    generate(CEConstraint ce, ChunkWriter cw, boolean withdmr)
-            throws DapException
-    {
-        begin(ce, cw, withdmr);
+        begin(ce, cw, withdmr, mode);
         if(this.withdmr)
             generateDMR(this.dmr);
         dataset(this.dmr);
@@ -135,7 +129,7 @@ public class Generator extends DapSerializer
     }
 
     public void
-    begin(CEConstraint ce, ChunkWriter cw, boolean withdmr)
+    begin(CEConstraint ce, ChunkWriter cw, boolean withdmr, ChecksumMode mode)
             throws DapException
     {
         this.cw = cw;
@@ -143,8 +137,9 @@ public class Generator extends DapSerializer
             ce = CEConstraint.getUniversal(this.dmr);
         this.ce = ce;
         this.order = cw.getWriteOrder();
+        this.checksummode = mode;
         this.withdmr = withdmr;
-        writer = new SerialWriter(this.cw, this.order);
+        writer = new SerialWriter(this.cw, this.order,this.checksummode);
     }
 
     public void

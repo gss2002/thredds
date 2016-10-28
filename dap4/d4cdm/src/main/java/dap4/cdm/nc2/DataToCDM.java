@@ -117,10 +117,10 @@ public class DataToCDM
             array = createStructure(data);
             break;
         }
-        if(d4var.isTopLevel()) {
+        if(d4var.isTopLevel() && this.dsp.getChecksumMode().enabled(dsp.getChecksumMode())) {
             // transfer the checksum attribute
-            byte[] csum = d4var.getChecksum();
-            String scsum = Escape.bytes2hex(csum);
+            int csum = d4var.getChecksum();
+            String scsum = String.format("0x%08x",csum);
             Variable cdmvar = (Variable) nodemap.get(d4var);
             Attribute acsum = new Attribute(DapUtil.CHECKSUMATTRNAME, scsum);
             cdmvar.addAttribute(acsum);

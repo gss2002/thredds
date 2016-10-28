@@ -47,6 +47,7 @@ public class TestServlet extends DapTestCommon
     static public boolean PARSEDEBUG = false;
 
     static public boolean USEBIG = false;
+    static public boolean NOCSUM = false;
 
     //////////////////////////////////////////////////
     // Constants
@@ -218,9 +219,12 @@ public class TestServlet extends DapTestCommon
             throws Exception
     {
         String url = testcase.makeurl(RequestMode.DMR);
-        String order = (USEBIG ? "1" : "0");
+        String little = (USEBIG ? "0" : "1");
+        String nocsum = (NOCSUM ? "1" : "0");
         MvcResult result = perform(url, RESOURCEPATH, this.mockMvc,
-                DapTestCommon.ORDERTAG, order);
+                DapTestCommon.ORDERTAG, little,
+                DapTestCommon.NOCSUMTAG, nocsum
+        );
 
         // Collect the output
         MockHttpServletResponse res = result.getResponse();
@@ -246,10 +250,12 @@ public class TestServlet extends DapTestCommon
             throws Exception
     {
         String url = testcase.makeurl(RequestMode.DAP);
-        String order = (USEBIG ? "1" : "0");
+        String little = (USEBIG ? "0" : "1");
+        String nocsum = (NOCSUM ? "1" : "0");
         MvcResult result = perform(url, RESOURCEPATH, this.mockMvc,
-                DapTestCommon.ORDERTAG, order);
-
+                DapTestCommon.ORDERTAG, little,
+                DapTestCommon.NOCSUMTAG, nocsum
+        );
         // Collect the output
         MockHttpServletResponse res = result.getResponse();
         byte[] byteresult = res.getContentAsByteArray();

@@ -4,6 +4,7 @@
 
 package dap4.dap4lib;
 
+import dap4.core.data.ChecksumMode;
 import dap4.core.data.DSP;
 import dap4.core.data.DataCursor;
 import dap4.core.dmr.DapAttribute;
@@ -50,8 +51,9 @@ abstract public class AbstractDSP implements DSP
     protected DapContext context = null;
     protected DapDataset dmr = null;
     protected String location = null;
-    protected ByteOrder order = null;
-    protected ChecksumMode checksummode = ChecksumMode.DAP;
+    private ByteOrder order = null;
+    private ChecksumMode checksummode = ChecksumMode.DAP;
+
     protected Map<DapVariable, DataCursor> variables = new HashMap<>();
 
     //////////////////////////////////////////////////
@@ -122,11 +124,15 @@ abstract public class AbstractDSP implements DSP
     public void setContext(DapContext context)
     {
         this.context = context;
-    }
+        // Extract some things from the context
+        Object o = this.context.get(Dap4Util.DAP4ENDIANTAG);
+        if(o != null) {
 
-    protected void
-    setRequestResponse()
-    {
+        }
+            setOrder((ByteOrder)o);
+        o = this.context.get(Dap4Util.DAP4CSUMTAG);
+        if(o != null)
+            setChecksumMode(ChecksumMode.modeFor(o.toString()));
     }
 
     public void
@@ -155,20 +161,21 @@ abstract public class AbstractDSP implements DSP
         return this.order;
     }
 
-    public void
-    setOrder(ByteOrder order)
-    {
-        this.order = order;
-    }
+    public AbstractDSP
+    setOrder(ByteOrder order) {this.order = order; return this;}
 
-    public ChecksumMode getChecksumMode()
+    public ChecksumMode
+    getChecksumMode()
     {
         return this.checksummode;
     }
 
-    public void setChecksumMode(ChecksumMode mode)
+    public AbstractDSP
+    setChecksumMode(ChecksumMode mode)
     {
-        this.checksummode = mode;
+        if(mode != null)
+            this.checksummode = mode;
+        return this;
     }
 
     public void
@@ -272,11 +279,11 @@ abstract public class AbstractDSP implements DSP
     {
         DapAttribute a = dataset.findAttribute(DapUtil.LITTLEENDIANATTRNAME);
         if(a == null)
-            setOrder(ByteOrder.LITTLE_ENDIAN);
+            this.order = (ByteOrder.LITTLE_ENDIAN);
         else {
             Object[] v = a.getValues();
             if(v.length == 0)
-                setOrder(ByteOrder.nativeOrder());
+                this.order = (ByteOrder.nativeOrder());
             else {
                 String onezero = v[0].toString();
                 int islittle = 1;
@@ -286,9 +293,9 @@ abstract public class AbstractDSP implements DSP
                     islittle = 1;
                 }
                 if(islittle == 0)
-                    setOrder(ByteOrder.BIG_ENDIAN);
+                    this.order = (ByteOrder.BIG_ENDIAN);
                 else
-                    setOrder(ByteOrder.LITTLE_ENDIAN);
+                    this.order = (ByteOrder.LITTLE_ENDIAN);
             }
         }
     }

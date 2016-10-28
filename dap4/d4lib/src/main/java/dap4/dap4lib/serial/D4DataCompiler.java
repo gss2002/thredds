@@ -5,15 +5,16 @@
 
 package dap4.dap4lib.serial;
 
+import dap4.core.data.ChecksumMode;
 import dap4.core.dmr.*;
 import dap4.core.util.DapDump;
 import dap4.core.util.DapException;
 import dap4.core.util.DapUtil;
-import dap4.dap4lib.ChecksumMode;
 import dap4.dap4lib.LibTypeFcns;
 import dap4.dap4lib.RequestMode;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 
 import static dap4.core.data.DataCursor.Scheme;
@@ -40,6 +41,7 @@ public class D4DataCompiler
     protected ByteBuffer databuffer;
 
     protected ChecksumMode checksummode = null;
+    protected ByteOrder order = null;
 
     protected D4DSP dsp;
 
@@ -54,7 +56,7 @@ public class D4DataCompiler
      * @param databuffer   the source of serialized databuffer
      */
 
-    public D4DataCompiler(D4DSP dsp, ChecksumMode checksummode,
+    public D4DataCompiler(D4DSP dsp, ChecksumMode checksummode, ByteOrder order,
                           ByteBuffer databuffer)
             throws DapException
     {
@@ -62,6 +64,7 @@ public class D4DataCompiler
         this.dataset = this.dsp.getDMR();
         this.databuffer = databuffer;
         this.checksummode = checksummode;
+        this.order = order;
     }
 
     //////////////////////////////////////////////////
@@ -111,10 +114,10 @@ public class D4DataCompiler
             else
                 array = compileSequenceArray(dapvar, container);
         }
-        if(dapvar.isTopLevel()) {
+        if(dapvar.isTopLevel() && this.checksummode.enabled(ChecksumMode.DAP)) {
             // extract the checksum from databuffer src,
             // attach to the array, and make into an attribute
-            byte[] checksum = getChecksum(databuffer);
+            int checksum = extractChecksum(databuffer);
             dapvar.setChecksum(checksum);
         }
         return array;
@@ -257,16 +260,14 @@ public class D4DataCompiler
     //////////////////////////////////////////////////
     // Utilities
 
-    protected byte[]
-    getChecksum(ByteBuffer data)
+    protected int
+    extractChecksum(ByteBuffer data)
             throws DapException
     {
-        if(!ChecksumMode.enabled(RequestMode.DAP, checksummode)) return null;
+        assert ChecksumMode.DAP.enabled(this.checksummode);
         if(data.remaining() < DapUtil.CHECKSUMSIZE)
             throw new DapException("Short serialization: missing checksum");
-        byte[] checksum = new byte[DapUtil.CHECKSUMSIZE];
-        data.get(checksum);
-        return checksum;
+        return data.getInt();
     }
 
     static protected void

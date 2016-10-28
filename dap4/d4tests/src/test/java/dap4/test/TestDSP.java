@@ -154,9 +154,9 @@ public class TestDSP extends DapTestCommon
                 // discriminate on the extensions
                 if(".raw".equals(ext))
                     return new FileDSP();
-                if(".syn".equals(ext))
+                if(".syn".equals(ext)) {
                     return new SynDSP();
-                if(".nc".equals(ext))
+                }if(".nc".equals(ext))
                     return new Nc4DSP();
             } else if("http".equals(proto)
                     || "https".equals(url.getProtocol())) {

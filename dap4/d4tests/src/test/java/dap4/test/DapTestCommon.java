@@ -44,7 +44,8 @@ abstract public class DapTestCommon extends UnitTestCommon
     static public final String FILESERVER = "file://localhost:8080";
 
     static public final String CONSTRAINTTAG = "dap4.ce";
-    static public final String ORDERTAG = "dap4.bigendian";
+    static public final String ORDERTAG = "ucar.littleendian";
+    static public final String NOCSUMTAG = "ucar.nochecksum";
 
     static final String D4TESTDIRNAME = "d4tests";
 

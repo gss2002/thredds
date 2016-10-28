@@ -104,7 +104,7 @@ abstract public class D4DSP extends AbstractDSP
         setDMR(dmr);
         // "Compile" the databuffer section of the server response
         this.databuffer = ByteBuffer.wrap(serialdata).order(order);
-        D4DataCompiler compiler = new D4DataCompiler(this, checksummode, this.databuffer);
+        D4DataCompiler compiler = new D4DataCompiler(this, getChecksumMode(), getOrder(), this.databuffer);
         compiler.compile();
     }
 

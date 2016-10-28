@@ -2,26 +2,30 @@
    See the LICENSE file for more information.
 */
 
-package dap4.dap4lib;
+package dap4.core.data;
 
 /**
  * Define possible checksum modes:
+ * NONE => serialized data has no checksums
  * DMR  => compute checksums for DMR requests only
- * DAP => compute checksums for Note requests only
+ * DAP => compute checksums for Data requests only
  * ALL  => compute checksums for both kinds of requests
  */
 public enum ChecksumMode
 {
-    DMR, DAP, ALL;
+    NONE, DMR, DAP, ALL;
 
-    static public boolean
-    enabled(RequestMode rqm, ChecksumMode ckm)
+    /**
+     * Return true if the ckm mode is allowed with this, false otherwise
+     * @param ckm
+     * @return
+     */
+    public boolean
+    enabled(ChecksumMode ckm)
     {
-        switch (ckm) {
-        case DMR:  return rqm == RequestMode.DMR;
-        case DAP: return rqm == RequestMode.DAP;
-        case ALL: return rqm == RequestMode.DMR || rqm == RequestMode.DAP;
-        }
+        if(ckm == null || this == NONE) return false;
+        if(this == ckm) return true;
+        if(this == ALL) return true;
         return false;
     }
 
@@ -30,7 +34,7 @@ public enum ChecksumMode
     {
         if(s == null || s.length() == 0)
             return DAP;
-        for(ChecksumMode mode: values()) {
+        for(ChecksumMode mode : values()) {
             if(mode.name().equalsIgnoreCase(s))
                 return mode;
         }

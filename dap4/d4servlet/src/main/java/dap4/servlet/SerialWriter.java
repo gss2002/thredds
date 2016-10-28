@@ -4,6 +4,7 @@
 
 package dap4.servlet;
 
+import dap4.core.data.ChecksumMode;
 import dap4.core.dmr.DapType;
 import dap4.core.dmr.TypeSort;
 import dap4.core.util.DapException;
@@ -56,7 +57,7 @@ public class SerialWriter
     protected int depth = 0;
 
     protected java.util.zip.Checksum checksum;
-    protected boolean checksumming = true;
+    protected ChecksumMode checksummode = null;
     protected boolean serialize = true; // false=>we do not need to actually serialize
     protected String lastchecksum = null; // checksum from last variable
 
@@ -66,10 +67,11 @@ public class SerialWriter
     //////////////////////////////////////////////////
     // Constructor(s)
 
-    public SerialWriter(OutputStream output, ByteOrder order)
+    public SerialWriter(OutputStream output, ByteOrder order, ChecksumMode mode)
     {
         this.output = output;
         this.order = order;
+        this.checksummode = mode;
         this.countbuffer = ByteBuffer.allocate(8) //8==sizeof(long)
                 .order(order);
         this.crcbuffer = ByteBuffer.allocate(4) //4==sizeof(crc32 digest)
@@ -84,11 +86,6 @@ public class SerialWriter
 
     //////////////////////////////////////////////////
     // Accessors
-
-    public void computeChecksums(boolean tf)
-    {
-        this.checksumming = tf;
-    }
 
     public void noSerialize(boolean tf)
     {
@@ -244,7 +241,7 @@ public class SerialWriter
             throws IOException
     {
         depth--;
-        if(depth == 0 && checksumming) {
+        if(depth == 0 && this.checksummode.enabled(ChecksumMode.DAP)) {
             long crc = this.checksum.getValue(); // get the digest value
             crc = (crc & 0x00000000FFFFFFFFL); /* crc is 32 bits */
             crcbuffer.clear();
@@ -323,7 +320,7 @@ public class SerialWriter
             throws IOException
     {
         outputBytes(bytes, 0, len);
-        if(checksumming) {
+        if(this.checksummode.enabled(ChecksumMode.DAP)) {
             this.checksum.update(bytes, 0, len);
             if(DUMPCSUM) {
                 System.err.print("SSS ");

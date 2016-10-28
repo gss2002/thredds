@@ -48,7 +48,6 @@ public class HttpDSP extends D4DSP
 
     static protected final String QUERYSTART = "?";
     static protected final String CONSTRAINTTAG = "dap4.ce";
-    static protected final String CHECKSUMTAG = "checksum";
     static protected final String PROTOTAG = "protocol";
 
     static protected final int DFALTPRELOADSIZE = 50000; // databuffer
@@ -148,8 +147,23 @@ public class HttpDSP extends D4DSP
             throws DapException
     {
         setLocation(url);
-        // See if this is a local vs remote request
         parseURL(url);
+
+        /* Take from the incoming data
+        String s = xuri.getFragFields().get(Dap4Util.DAP4CSUMTAG);
+        ChecksumMode mode = ChecksumMode.modeFor(s);
+        if(mode == null)
+            throw new DapException(String.format("Illegal %s: %s",Dap4Util.DAP4CSUMTAG,s));
+        setChecksumMode(mode);
+        s = xuri.getFragFields().get(Dap4Util.DAP4ENDIANTAG);
+        Integer oz = DapUtil.stringToInteger(s);
+        if(oz == null)
+            throw new DapException(String.format("Illegal %s: %s",Dap4Util.DAP4ENDIANTAG,s));
+        ByteOrder order = (oz != 0 ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN);
+        setOrder(order);
+        */
+
+        // See if this is a local vs remote request
         this.basece = this.xuri.getQueryFields().get(CONSTRAINTTAG);
         build();
         return this;
@@ -183,10 +197,6 @@ public class HttpDSP extends D4DSP
             throws DapException
     {
         String methodurl = buildURL(this.xuri.assemble(XURI.URLONLY), DATASUFFIX, this.dmr, this.basece);
-        this.checksummode = ChecksumMode.modeFor(xuri.getFragFields().get(CHECKSUMTAG));
-        if(this.checksummode == null) {
-            this.checksummode = ChecksumMode.DAP;
-        }
 
         InputStream stream;
         // Make the request and return an input stream for accessing the databuffer
@@ -198,7 +208,7 @@ public class HttpDSP extends D4DSP
             if(DEBUG) {
                 byte[] raw = DapUtil.readbinaryfile(stream);
                 ByteArrayInputStream bis = new ByteArrayInputStream(raw);
-                DapDump.dumpbytestream(raw, order, "httpdsp.build");
+                DapDump.dumpbytestream(raw, getOrder(), "httpdsp.build");
                 reader = new ChunkInputStream(bis, RequestMode.DAP, getOrder());
             } else {
                 // Wrap the input stream as a ChunkInputStream

@@ -6,6 +6,7 @@
 package dap4.servlet;
 
 import dap4.core.ce.CEConstraint;
+import dap4.core.data.ChecksumMode;
 import dap4.core.data.DSP;
 import dap4.core.dmr.DapAttribute;
 import dap4.core.dmr.DapDataset;
@@ -87,6 +88,9 @@ abstract public class DapController extends HttpServlet
     protected boolean compress = true;
 
     transient protected DapDSR dsrbuilder = new DapDSR();
+
+    protected ByteOrder order = null;
+    protected ChecksumMode checksummode = ChecksumMode.DAP;
 
 
     //////////////////////////////////////////////////
@@ -212,8 +216,15 @@ abstract public class DapController extends HttpServlet
             System.err.println("DAP4 Servlet: processing url: " + drq.getOriginalURL());
         }
         assert (this.dapcxt != null);
+        // Add entries to the context
         this.dapcxt.put(HttpServletRequest.class, req);
         this.dapcxt.put(HttpServletResponse.class, res);
+
+        this.order = drq.getOrder();
+        this.checksummode = drq.getChecksumMode();
+        this.dapcxt.put(Dap4Util.DAP4ENDIANTAG, this.order);
+        this.dapcxt.put(Dap4Util.DAP4CSUMTAG, this.checksummode);
+
         if(url.endsWith(FAVICON)) {
             doFavicon(drq, FAVICON, this.dapcxt);
             return;
@@ -285,7 +296,7 @@ abstract public class DapController extends HttpServlet
             OutputStream out = drq.getOutputStream();
             addCommonHeaders(drq);// Add relevant headers
             // Wrap the outputstream with a Chunk writer
-            ChunkWriter cw = new ChunkWriter(out, RequestMode.DSR, drq.getByteOrder());
+            ChunkWriter cw = new ChunkWriter(out, RequestMode.DSR, this.order);
             cw.writeDSR(dsr);
             cw.close();
         } catch (IOException ioe) {
@@ -311,7 +322,7 @@ abstract public class DapController extends HttpServlet
         DapDataset dmr = dsp.getDMR();
 
         /* Annotate with our endianness */
-        addEndianness(dmr,drq);
+        addEndianness(dmr, drq);
 
         // Process any constraint view
         CEConstraint ce = null;
@@ -336,7 +347,7 @@ abstract public class DapController extends HttpServlet
 
         // Wrap the outputstream with a Chunk writer
         OutputStream out = drq.getOutputStream();
-        ChunkWriter cw = new ChunkWriter(out, RequestMode.DMR, drq.getByteOrder());
+        ChunkWriter cw = new ChunkWriter(out, RequestMode.DMR, this.order);
         cw.cacheDMR(sdmr);
         cw.close();
     }
@@ -364,7 +375,7 @@ abstract public class DapController extends HttpServlet
         DapDataset dmr = dsp.getDMR();
 
         /* Annotate with our endianness */
-        addEndianness(dmr,drq);
+        addEndianness(dmr, drq);
 
         // Process any constraint
         CEConstraint ce = null;
@@ -386,7 +397,7 @@ abstract public class DapController extends HttpServlet
 
         // Wrap the outputstream with a Chunk writer
         OutputStream out = drq.getOutputStream();
-        ChunkWriter cw = new ChunkWriter(out, RequestMode.DAP, drq.getByteOrder());
+        ChunkWriter cw = new ChunkWriter(out, RequestMode.DAP, this.order);
         cw.setWriteLimit(getBinaryWriteLimit());
         cw.cacheDMR(sdmr);
         cw.flush();
@@ -407,7 +418,7 @@ abstract public class DapController extends HttpServlet
                 */
         case NONE:
         default:
-            DapSerializer writer = new DapSerializer(dsp, ce, cw, drq.getByteOrder());
+            DapSerializer writer = new DapSerializer(dsp, ce, cw, this.order, drq.getChecksumMode());
             writer.write(dsp.getDMR());
             cw.flush();
             cw.close();
@@ -513,8 +524,7 @@ abstract public class DapController extends HttpServlet
         DapAttribute a = dmr.findAttribute(DapUtil.LITTLEENDIANATTRNAME);
         if(a == null) {
             a = new DapAttribute(DapUtil.LITTLEENDIANATTRNAME, DapType.UINT8);
-            ByteOrder order = drq.getByteOrder();
-            Integer oz = (order == ByteOrder.BIG_ENDIAN ? 0 : 1);
+            Integer oz = (this.order == ByteOrder.BIG_ENDIAN ? 0 : 1);
             a.setValues(new Integer[]{oz});
             dmr.addAttribute(a);
         }

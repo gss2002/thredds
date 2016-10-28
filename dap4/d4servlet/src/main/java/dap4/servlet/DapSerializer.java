@@ -5,6 +5,7 @@
 package dap4.servlet;
 
 import dap4.core.ce.CEConstraint;
+import dap4.core.data.ChecksumMode;
 import dap4.core.data.DSP;
 import dap4.core.data.DataCursor;
 import dap4.core.dmr.*;
@@ -33,6 +34,7 @@ public class DapSerializer
     protected DSP dsp = null;
     protected CEConstraint ce = null;
     protected ByteOrder order = null;
+    protected ChecksumMode checksummode = null;
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -50,11 +52,12 @@ public class DapSerializer
      * @param order      The byte order to use
      */
     public DapSerializer(DSP dsp, CEConstraint constraint,
-                         OutputStream stream, ByteOrder order)
+                         OutputStream stream, ByteOrder order, ChecksumMode mode)
             throws IOException
     {
         this.dsp = dsp;
         this.order = order;
+        this.checksummode = mode;
         this.stream = stream;
         this.ce = constraint;
     }
@@ -63,7 +66,7 @@ public class DapSerializer
     write(DapDataset dmr)
             throws IOException
     {
-        writer = new SerialWriter(this.stream, this.order);
+        writer = new SerialWriter(this.stream, this.order, this.checksummode);
         writer.flush(); // If stream is ChunkWriter, then dump DMR
         // Iterate over the top-level variables in the constraint
         for(DapVariable var : dmr.getTopVariables()) {
