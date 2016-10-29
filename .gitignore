@@ -2,7 +2,7 @@
 target/
 
 # Ignore possible THREDDS content directories
-tds/content/
+#tds/content/
 
 # Ignore unwanted IntelliJ IDEA project files
 /intelliJ/
