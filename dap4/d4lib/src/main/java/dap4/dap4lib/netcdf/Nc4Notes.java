@@ -31,33 +31,49 @@ abstract public class Nc4Notes
     //////////////////////////////////////////////////
     // Type Decls
 
+    static public enum NoteSort
+    {
+        TYPE, VAR, GROUP, DIM;
+    }
+
     static public class Notes implements Cloneable
     {
+        NoteSort sort;
         int gid;
         int id;
+        protected String name = null;
         DapNode node = null;
+        protected Notes parent = null;
+        protected TypeNotes basetype = null;
+        protected long size = 0;
+        protected long offset = 0;
 
         public Notes(int gid, int id)
         {
             this.gid = gid;
             this.id = id;
+            if(this instanceof TypeNotes) this.sort = NoteSort.TYPE;
+            else if(this instanceof VarNotes) this.sort = NoteSort.VAR;
+            else if(this instanceof GroupNotes) this.sort = NoteSort.GROUP;
+            else if(this instanceof DimNotes) this.sort = NoteSort.DIM;
         }
 
-        public Object clone()
-        //throws CloneNotSupportedException
+        public NoteSort getSort()
         {
-            try {
-                return super.clone();
-            } catch (CloneNotSupportedException e) {
-                return null;
-            }
+            return this.sort;
         }
 
+        public Notes setName(String name)
+        {
+            this.name = name;
+            return this;
+        }
 
         public Notes set(DapNode node)
         {
             this.node = node;
             node.annotate(this);
+            if(this.name != null) setName(node.getShortName());
             return this;
         }
 
@@ -66,15 +82,69 @@ abstract public class Nc4Notes
             return this.node;
         }
 
-        public DapDecl getDecl()
+        public Notes setContainer(Notes parent)
         {
-            return (DapDecl) this.node;
+            this.parent = parent;
+            return this;
+        }
+
+        public Notes getContainer()
+        {
+            return this.parent;
+        }
+
+        public Notes setSize(long size)
+        {
+            this.size = size;
+            return this;
+        }
+
+        public long getOffset()
+        {
+            return this.offset;
+        }
+
+        public Notes setOffset(long offset)
+        {
+            this.offset = offset;
+            return this;
+        }
+
+        public long getSize()
+        {
+            return this.size;
+        }
+
+        public Notes setBaseType(TypeNotes t)
+        {
+            this.basetype = t;
+            return this;
+        }
+
+        public TypeNotes getBaseType()
+        {
+            return this.basetype;
         }
 
         DapGroup group()
         {
             GroupNotes g = GroupNotes.find(gid);
-            return (g == null ? null : g.getGroup());
+            return (g == null ? null : g.get());
+        }
+
+        public String toString()
+        {
+            StringBuilder buf = new StringBuilder();
+            buf.append(this.getClass().getName());
+            buf.append("{");
+            if(name != null) {
+                buf.append("name=");
+                buf.append(name);
+            }
+            buf.append("node=");
+            buf.append(this.node != null ? this.node.getShortName() : "null");
+            buf.append("}");
+            return buf.toString();
         }
     }
 
@@ -93,9 +163,9 @@ abstract public class Nc4Notes
             allgroups.put(g, this);
         }
 
-        public DapGroup getGroup()
+        public DapGroup get()
         {
-            return (DapGroup) this.node;
+            return (DapGroup) super.get();
         }
 
         public GroupNotes set(DapNode node)
@@ -120,9 +190,9 @@ abstract public class Nc4Notes
             alldims.put(id, this);
         }
 
-        public DapDimension getDim()
+        public DapDimension get()
         {
-            return (DapDimension) this.node;
+            return (DapDimension) super.get();
         }
 
         public DimNotes set(DapNode node)
@@ -151,9 +221,7 @@ abstract public class Nc4Notes
             return null;
         }
 
-        public int opaquelen = -1;
         public int enumbase = -1;
-        public int compoundsize = -1;
         public boolean isvlen = false;
 
         public TypeNotes(int g, int id)
@@ -169,11 +237,11 @@ abstract public class Nc4Notes
             case ATOMICTYPE:
             case STRUCTURE:
             case SEQUENCE:
-                return (DapType) this.node;
+                return (DapType) super.get();
             case ENUMERATION:
-                return ((DapEnumeration) this.node);
+                return (DapEnumeration) super.get();
             case VARIABLE:
-                return ((DapVariable) this.node).getBaseType();
+                return ((DapVariable) super.get()).getBaseType();
             default:
                 break;
             }
@@ -182,7 +250,7 @@ abstract public class Nc4Notes
 
         public TypeNotes setOpaque(int len)
         {
-            opaquelen = len;
+            super.setSize(len);
             return this;
         }
 
@@ -194,17 +262,17 @@ abstract public class Nc4Notes
 
         public boolean isOpaque()
         {
-            return this.opaquelen >= 0;
+            return getType().getTypeSort().isOpaqueType();
         }
 
         public boolean isEnum()
         {
-            return this.enumbase >= 0;
+            return getType().getTypeSort().isEnumType();
         }
 
         public boolean isCompound()
         {
-            return this.compoundsize >= 0;
+            return getType().getTypeSort().isCompoundType();
         }
 
         public boolean isVlen()
@@ -214,7 +282,7 @@ abstract public class Nc4Notes
 
         public TypeNotes setCompoundSize(int size)
         {
-            this.compoundsize = size;
+            super.setSize(size);
             return this;
         }
 
@@ -222,6 +290,11 @@ abstract public class Nc4Notes
         {
             this.isvlen = true;
             return this;
+        }
+
+        public DapType get()
+        {
+            return (DapType) super.get();
         }
 
         public TypeNotes set(DapNode node)
@@ -256,7 +329,7 @@ abstract public class Nc4Notes
             return allvars.get(gv);
         }
 
-        protected TypeNotes basetype = null;
+        protected int fieldid = -1;
 
         public VarNotes(int g, int v)
         {
@@ -268,41 +341,12 @@ abstract public class Nc4Notes
 
         public VarNotes setBaseType(TypeNotes ti)
         {
-            this.basetype = ti;
-            return this;
+            return (VarNotes) super.setBaseType(ti);
         }
 
-        public DapVariable getVar()
+        public DapVariable get()
         {
-            return (DapVariable) this.node;
-        }
-
-        public VarNotes set(DapNode node)
-        {
-            return (VarNotes) super.set(node);
-        }
-
-    }
-
-    static public class FieldNotes extends Notes
-    {
-        protected Notes parent = null;
-        protected TypeNotes basetype = null;
-        protected int fieldid = NOFIELDID;
-        protected long offset = -1;
-
-        public FieldNotes(TypeNotes parent, int fid, long offset)
-        {
-            super(NOGROUP, NOID);
-            this.parent = parent;
-            this.fieldid = fid;
-            this.offset = offset;
-        }
-
-        public FieldNotes setBaseType(TypeNotes ti)
-        {
-            this.basetype = ti;
-            return this;
+            return (DapVariable) super.get();
         }
 
         public VarNotes set(DapNode node)
@@ -315,20 +359,13 @@ abstract public class Nc4Notes
             return this.fieldid;
         }
 
-        public long getOffset()
+        public VarNotes setFieldID(int id)
         {
-            return this.offset;
+            this.fieldid = id;
+            return this;
         }
 
-        public Notes getParent()
-        {
-            return this.parent;
-        }
-
-        public DapVariable getVar()
-        {
-            return (DapVariable) get();
-        }
     }
+
 
 }

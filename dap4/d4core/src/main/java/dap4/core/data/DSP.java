@@ -8,9 +8,11 @@ import dap4.core.dmr.DapDataset;
 import dap4.core.dmr.DapVariable;
 import dap4.core.util.DapContext;
 import dap4.core.util.DapException;
+import dap4.core.util.Slice;
 
 import java.io.IOException;
 import java.nio.ByteOrder;
+import java.util.List;
 
 public interface DSP
 {
@@ -48,7 +50,7 @@ public interface DSP
 
     public DapDataset getDMR() throws dap4.core.util.DapException;
 
-    public DataCursor getVariableData(DapVariable var) throws DapException; // get top level cursor
+    public DataCursor getVariableData(DapVariable var) throws DapException;
 
     public ByteOrder getOrder();
 

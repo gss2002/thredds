@@ -213,7 +213,7 @@ public class DSPPrinter
                 printer.marginPrint(ds.getFQN() + s + " = {");
                 printer.eol();
                 printer.indent();
-                DataCursor instance = (DataCursor) data.read(pos);
+                DataCursor instance = (DataCursor) data.getVariable(pos);
                 printCompoundInstance(instance);
                 printer.outdent();
                 printer.marginPrint("}");

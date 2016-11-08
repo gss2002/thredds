@@ -55,6 +55,7 @@ abstract public class AbstractDSP implements DSP
     private ChecksumMode checksummode = ChecksumMode.DAP;
 
     protected Map<DapVariable, DataCursor> variables = new HashMap<>();
+    protected DataCursor rootcursor = null;
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -129,7 +130,7 @@ abstract public class AbstractDSP implements DSP
         if(o != null) {
 
         }
-            setOrder((ByteOrder)o);
+        setOrder((ByteOrder) o);
         o = this.context.get(Dap4Util.DAP4CSUMTAG);
         if(o != null)
             setChecksumMode(ChecksumMode.modeFor(o.toString()));
@@ -162,7 +163,11 @@ abstract public class AbstractDSP implements DSP
     }
 
     public AbstractDSP
-    setOrder(ByteOrder order) {this.order = order; return this;}
+    setOrder(ByteOrder order)
+    {
+        this.order = order;
+        return this;
+    }
 
     public ChecksumMode
     getChecksumMode()

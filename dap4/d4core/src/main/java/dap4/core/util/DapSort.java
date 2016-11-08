@@ -32,7 +32,7 @@ public enum DapSort
     ENUMERATION("Enumeration", DapEnumeration.class),
     ENUMCONST("EnumConst", DapEnumConst.class),
     SEQUENCE("Sequence", DapSequence.class),    // sequence type, not variable
-    STRUCTURE("Structure", DapStructure.class,SEQUENCE),  // structure type, not variable
+    STRUCTURE("Structure", DapStructure.class, SEQUENCE),  // structure type, not variable
     ;
 
     private final String name;
@@ -73,5 +73,21 @@ public enum DapSort
         }
         return false;
     }
-};
+
+    public boolean isVar()
+    {
+        return this == VARIABLE;
+    }
+
+    public boolean isType()
+    {
+        return this == ATOMICTYPE || this == SEQUENCE || this == STRUCTURE || this == ENUMERATION;
+    }
+
+    public boolean isCompound()
+    {
+        return this == SEQUENCE || this == STRUCTURE;
+    }
+}
+
 

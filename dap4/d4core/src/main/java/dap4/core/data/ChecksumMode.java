@@ -6,14 +6,15 @@ package dap4.core.data;
 
 /**
  * Define possible checksum modes:
- * NONE => serialized data has no checksums
- * DMR  => compute checksums for DMR requests only
- * DAP => compute checksums for Data requests only
- * ALL  => compute checksums for both kinds of requests
+ *
  */
 public enum ChecksumMode
 {
-    NONE, DMR, DAP, ALL;
+    NONE,   // => serialized data has no checksums
+    IGNORE, // => skip, but ignore any checksumming (client side)
+    DMR,    // => compute checksums for DMR requests only
+    DAP,    // => compute checksums for Data requests only
+    ALL;    // => compute checksums for both kinds of requestsNONE, DMR, DAP, ALL;
 
     /**
      * Return true if the ckm mode is allowed with this, false otherwise

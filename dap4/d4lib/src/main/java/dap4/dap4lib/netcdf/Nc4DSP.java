@@ -66,18 +66,48 @@ public class Nc4DSP extends AbstractDSP
     //////////////////////////////////////////////////
     // com.sun.jna.Memory control
 
-    static abstract class Mem
+
+    /**
+     * Provide a wrapper for pointers that tracks the size.
+     * Also allows for allocation.
+     */
+    static public class Nc4Pointer
     {
-        static Memory
+        static public Nc4Pointer
         allocate(long size)
         {
             if(size == 0)
                 throw new IllegalArgumentException("Attempt to allocate zero bytes");
             Memory m = new Memory(size);
-            return m;
+            return new Nc4Pointer(m, size);
+        }
+
+        public Pointer p;  // alow direct access
+        public long size; //allow direct access
+
+        public Nc4Pointer(Pointer p, long size)
+        {
+            this.p = p;
+            this.size = size;
+        }
+
+        public Nc4Pointer
+        share(long offset, long size)
+        {
+            try {
+                Pointer ps = p.share(offset, size);
+                return new Nc4Pointer(ps, size);
+            } catch (IndexOutOfBoundsException e) {
+                return null;
+            }
+        }
+
+        public String
+        toString()
+        {
+            return String.format("0x%016x/%d",Pointer.nativeValue(this.p),this.size);
         }
     }
-
 
     //////////////////////////////////////////////////
     // Static variables
@@ -164,7 +194,7 @@ public class Nc4DSP extends AbstractDSP
             if(DEBUG)
                 System.out.printf("TestNetcdf: open: %s; ncid=%d; format=%d%n",
                         this.filepath, ncid, this.format);
-            // Compile the DMR 
+            // Compile the DMR
             Nc4DMRCompiler dmrcompiler = new Nc4DMRCompiler(this, ncid, dmrfactory);
             setDMR(dmrcompiler.compile());
             return this;
@@ -188,32 +218,30 @@ public class Nc4DSP extends AbstractDSP
     }
 
     @Override
-    public DataCursor
+    public Nc4Cursor
     getVariableData(DapVariable var)
             throws DapException
     {
-        DataCursor vardata = super.getVariableData(var);
+        assert (var.isTopLevel());
         DapType type = var.getBaseType();
+        Nc4Cursor vardata = (Nc4Cursor) super.getVariableData(var);
         if(vardata == null) {
             switch (type.getTypeSort()) {
             case Structure:
-                DataCursor.Scheme scheme = (var.getRank() == 0 ? DataCursor.Scheme.STRUCTURE
-                        : DataCursor.Scheme.STRUCTARRAY);
-                vardata = new Nc4Cursor(scheme, var, this);
+                vardata = new Nc4Cursor(DataCursor.Scheme.STRUCTARRAY, this, var, null);
                 break;
             case Sequence:
-                scheme = (var.getRank() == 0 ? DataCursor.Scheme.SEQUENCE
-                        : DataCursor.Scheme.SEQARRAY);
-                vardata = new Nc4Cursor(scheme, var, this);
+                vardata = new Nc4Cursor(DataCursor.Scheme.SEQARRAY, this, var, null);
                 break;
             default:
                 if(!type.isAtomic())
                     throw new DapException("Unexpected cursor type: " + type);
-                vardata = new Nc4Cursor(DataCursor.Scheme.ATOMIC, var, this);
+                vardata = new Nc4Cursor(DataCursor.Scheme.ATOMIC, this, var, null);
                 break;
             }
             super.addVariableData(var, vardata);
         }
+        assert var.isTopLevel();
         return vardata;
     }
 
@@ -231,7 +259,6 @@ public class Nc4DSP extends AbstractDSP
     {
         return this.filepath;
     }
-
 
 
 }

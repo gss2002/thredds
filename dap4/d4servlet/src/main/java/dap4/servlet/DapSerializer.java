@@ -72,10 +72,10 @@ public class DapSerializer
         for(DapVariable var : dmr.getTopVariables()) {
             if(!this.ce.references(var))
                 continue;
-            DataCursor varcursor = this.dsp.getVariableData(var);
-            if(varcursor == null)
+            DataCursor vardata = this.dsp.getVariableData(var);
+            if(vardata == null)
                 throw new dap4.core.util.DapException("DapSerializer: cannot find  Variable data " + var.getFQN());
-            writeVariable(varcursor, writer);
+            writeVariable(vardata, writer);
         }
     }
 
@@ -98,16 +98,12 @@ public class DapSerializer
             writeAtomicVariable(data, dst);
             break;
         case STRUCTARRAY:
+            //case STRUCTURE:
             writeStructure(data, dst);
             break;
         case SEQARRAY:
+            //case SEQUENCE:
             writeSequence(data, dst);
-            break;
-        case STRUCTURE:
-            writeStructure1(data, dst);
-            break;
-        case SEQUENCE:
-            writeSequence1(data, dst);
             break;
         default:
             assert false : "Unexpected variable type";
@@ -143,7 +139,7 @@ public class DapSerializer
     }
 
     /**
-     * Write out a single or array structure instance
+     * Write out a scalar or array structure instance
      *
      * @param data
      * @param dst  - where to write
@@ -155,18 +151,14 @@ public class DapSerializer
             throws IOException
     {
         DapVariable template = (DapVariable) data.getTemplate();
-        DapStructure ds = (DapStructure)template.getBaseType();
+        DapStructure ds = (DapStructure) template.getBaseType();
         assert (this.ce.references(template));
-        if(template.getRank() == 0) { // scalar
-            writeStructure1(data, dst);
-        } else {
-            List<Slice> slices = ce.getConstrainedSlices(template);
-            Odometer odom = Odometer.factory(slices);
-            while(odom.hasNext()) {
-                Index index = odom.next();
-                DataCursor instance = (DataCursor) data.read(index);
-                writeStructure1(instance, dst);
-            }
+        List<Slice> slices = ce.getConstrainedSlices(template);
+        Odometer odom = Odometer.factory(slices);
+        while(odom.hasNext()) {
+            Index index = odom.next();
+            DataCursor instance = (DataCursor) data.getVariable(index);
+            writeStructure1(instance, dst);
         }
     }
 
@@ -185,7 +177,7 @@ public class DapSerializer
         assert instance.getScheme() == DataCursor.Scheme.STRUCTURE;
         DapVariable template = (DapVariable) instance.getTemplate();
         assert (this.ce.references(template));
-        DapStructure ds = (DapStructure)template.getBaseType();
+        DapStructure ds = (DapStructure) template.getBaseType();
 
         List<DapVariable> fields = ds.getFields();
         for(int i = 0; i < fields.size(); i++) {
@@ -209,18 +201,14 @@ public class DapSerializer
             throws IOException
     {
         DapVariable template = (DapVariable) data.getTemplate();
-        DapSequence ds = (DapSequence)template.getBaseType();
+        DapSequence ds = (DapSequence) template.getBaseType();
         assert (this.ce.references(template));
-        if(template.getRank() == 0) { // scalar
-            writeSequence1(data, dst);
-        } else {
-            List<Slice> slices = ce.getConstrainedSlices(template);
-            Odometer odom = Odometer.factory(slices);
-            while(odom.hasNext()) {
-                Index index = odom.next();
-                DataCursor instance = (DataCursor) data.read(index);
-                writeSequence1(instance, dst);
-            }
+        List<Slice> slices = ce.getConstrainedSlices(template);
+        Odometer odom = Odometer.factory(slices);
+        while(odom.hasNext()) {
+            Index index = odom.next();
+            DataCursor instance = (DataCursor) data.getVariable(index);
+            writeSequence1(instance, dst);
         }
     }
 
@@ -261,8 +249,8 @@ public class DapSerializer
     writeRecord(DataCursor record, SerialWriter dst)
             throws IOException
     {
-        DapVariable template = (DapVariable)record.getTemplate();
-        DapSequence seq = (DapSequence)template.getBaseType();
+        DapVariable template = (DapVariable) record.getTemplate();
+        DapSequence seq = (DapSequence) template.getBaseType();
         List<DapVariable> fields = seq.getFields();
         for(int i = 0; i < fields.size(); i++) {
             DapVariable field = fields.get(i);

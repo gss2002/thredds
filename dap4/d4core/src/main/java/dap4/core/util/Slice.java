@@ -6,6 +6,9 @@ package dap4.core.util;
 
 import dap4.core.dmr.DapDimension;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * A Slice is used for two purposes
  * <ol>
@@ -43,6 +46,7 @@ public class Slice
     }
 
     static public Slice ZeroSlice;
+    static public List<Slice> SCALARSLICES;
 
     static {
         try {
@@ -50,6 +54,8 @@ public class Slice
         } catch (DapException de) {
             ZeroSlice = null;
         }
+        SCALARSLICES = new ArrayList<Slice>();
+        SCALARSLICES.add(ZeroSlice);
     }
 
     //////////////////////////////////////////////////

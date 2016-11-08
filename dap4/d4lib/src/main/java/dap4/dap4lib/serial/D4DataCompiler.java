@@ -135,7 +135,7 @@ public class D4DataCompiler
             throws DapException
     {
         DapType daptype = var.getBaseType();
-        D4Cursor data = new D4Cursor(Scheme.ATOMIC, this.dsp, var);
+        D4Cursor data = new D4Cursor(Scheme.ATOMIC, (D4DSP)this.dsp, var, container);
         data.setOffset(getPos(this.databuffer));
         long total = 0;
         long dimproduct = var.getCount();
@@ -167,7 +167,7 @@ public class D4DataCompiler
             throws DapException
     {
         DapStructure struct = (DapStructure) dapvar.getBaseType();
-        D4Cursor structarray = new D4Cursor(Scheme.STRUCTARRAY, this.dsp, dapvar)
+        D4Cursor structarray = new D4Cursor(Scheme.STRUCTARRAY, (D4DSP)this.dsp, dapvar, container)
                 .setOffset(getPos(this.databuffer));
         long dimproduct = dapvar.getCount();
         for(int i = 0; i < dimproduct; i++) {
@@ -190,7 +190,7 @@ public class D4DataCompiler
             throws DapException
     {
         int pos = getPos(this.databuffer);
-        D4Cursor d4ds = new D4Cursor(Scheme.STRUCTURE, this.dsp, var)
+        D4Cursor d4ds = new D4Cursor(Scheme.STRUCTURE, (D4DSP)this.dsp, var, container)
                 .setOffset(pos);
         List<DapVariable> dfields = dapstruct.getFields();
         for(int m = 0; m < dfields.size(); m++) {
@@ -214,7 +214,7 @@ public class D4DataCompiler
             throws DapException
     {
         DapSequence dapseq = (DapSequence) dapvar.getBaseType();
-        D4Cursor seqarray = new D4Cursor(Scheme.SEQARRAY, this.dsp, dapvar)
+        D4Cursor seqarray = new D4Cursor(Scheme.SEQARRAY, this.dsp, dapvar, container)
                 .setOffset(getPos(this.databuffer));
         long dimproduct = dapvar.getCount();
         for(int i = 0; i < dimproduct; i++) {
@@ -237,14 +237,14 @@ public class D4DataCompiler
             throws DapException
     {
         int pos = getPos(this.databuffer);
-        D4Cursor seq = new D4Cursor(Scheme.SEQUENCE, this.dsp, var)
+        D4Cursor seq = new D4Cursor(Scheme.SEQUENCE, this.dsp, var, container)
                 .setOffset(pos);
         List<DapVariable> dfields = dapseq.getFields();
         // Get the count of the number of records
         long nrecs = getCount(this.databuffer);
         for(int r = 0; r < nrecs; r++) {
             pos = getPos(this.databuffer);
-            D4Cursor rec = new D4Cursor(D4Cursor.Scheme.RECORD, this.dsp, var)
+            D4Cursor rec = new D4Cursor(D4Cursor.Scheme.RECORD, this.dsp, var, container)
                     .setOffset(pos);
             for(int m = 0; m < dfields.size(); m++) {
                 DapVariable dfield = dfields.get(m);

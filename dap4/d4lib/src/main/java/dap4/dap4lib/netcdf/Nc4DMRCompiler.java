@@ -11,18 +11,12 @@ import com.sun.jna.ptr.IntByReference;
 import dap4.core.dmr.*;
 import dap4.core.util.DapContext;
 import dap4.core.util.DapException;
-import dap4.core.util.DapSort;
 import dap4.core.util.DapUtil;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.List;
-import java.util.Map;
-
 import static dap4.dap4lib.netcdf.DapNetcdf.*;
-import static dap4.dap4lib.netcdf.Nc4Cursor.Mem;
-import static dap4.dap4lib.netcdf.Nc4Notes.*;
 import static dap4.dap4lib.netcdf.Nc4DSP.EXTENSIONS;
+import static dap4.dap4lib.netcdf.Nc4DSP.Nc4Pointer;
+import static dap4.dap4lib.netcdf.Nc4Notes.*;
 
 
 /**
@@ -176,7 +170,7 @@ public class Nc4DMRCompiler
         g.annotate(gi);
         gi.set(g);
         GroupNotes gp = GroupNotes.find(parent);
-        gp.getGroup().addDecl(g);
+        gp.get().addDecl(g);
         fillgroup(gid);
     }
 
@@ -196,7 +190,7 @@ public class Nc4DMRCompiler
         dim.annotate(di);
         di.set(dim);
         GroupNotes gp = GroupNotes.find(gid);
-        gp.getGroup().addDecl(dim);
+        gp.get().addDecl(dim);
         if(isunlimited) {
             DapAttribute ultag = factory.newAttribute(UCARTAGUNLIM, DapType.INT8);
             ultag.setValues(new Object[]{(Byte) (byte) 1});
@@ -228,7 +222,7 @@ public class Nc4DMRCompiler
             buildenumtype(ti, name, basetype);
             break;
         case NC_COMPOUND:
-            buildcompoundtype(ti, name, nfieldsp.intValue(), null);
+            buildcompoundtype(ti, name, nfieldsp.intValue());
             break;
         case NC_VLEN:
             buildvlentype(ti, name, basetype);
@@ -280,7 +274,7 @@ public class Nc4DMRCompiler
     }
 
     protected void
-    buildcompoundtype(TypeNotes ti, String name, long nfields, DapVariable parent)
+    buildcompoundtype(TypeNotes ti, String name, long nfields)
             throws DapException
     {
         DapStructure ds = factory.newStructure(name);
@@ -288,7 +282,7 @@ public class Nc4DMRCompiler
         ti.set(ds);
         ti.group().addDecl(ds);
         for(int i = 0; i < nfields; i++) {
-            buildfield(ti, i, parent);
+            buildfield(ti, i, ds);
         }
         // Finally, extract the size of the structure
         int ret;
@@ -300,7 +294,7 @@ public class Nc4DMRCompiler
     }
 
     protected void
-    buildfield(TypeNotes ti, int fid, DapVariable parent)
+    buildfield(TypeNotes ti, int fid, DapStructure container)
             throws DapException
     {
         int ret;
@@ -317,31 +311,24 @@ public class Nc4DMRCompiler
         if(baset == null)
             throw new DapException("Undefined field base type: " + fieldtype);
         int[] dimsizes = getFieldDimsizes(ti.gid, ti.id, fid, ndimsp.getValue());
-        makeField(ti, fid, makeString(namep), baset, offsetp.intValue(), dimsizes, parent);
+        DapVariable fieldvar = makeField(ti, fid, makeString(namep), baset, offsetp.intValue(), dimsizes);
+        fieldvar.setParent(container);
     }
 
-    protected void
-    makeField(TypeNotes container, int index, String name, TypeNotes baset, int offset, int[] dimsizes, DapVariable parent)
+    protected DapVariable
+    makeField(TypeNotes container, int fieldid, String name, TypeNotes baset, int offset, int[] dimsizes)
             throws DapException
     {
         DapVariable field;
-        DapStructure ds = (DapStructure)container.getType();
-        FieldNotes notes = new FieldNotes(container, index, offset)
-                .setBaseType(baset);
-        switch (baset.getType().getTypeSort()) {
-        case Structure:
-            field = factory.newVariable(name,ds);
-            field.annotate(notes);
-            break;
-        case Sequence:
-            field = factory.newVariable(name,ds);
-            field.annotate(notes);
-            break;
-        default:
-            field = factory.newVariable(name, baset.getType());
-            field.annotate(notes);
-            break;
-        }
+        DapStructure ds = (DapStructure) container.getType();
+        VarNotes notes = (VarNotes) new VarNotes(container.gid,container.id)
+                .setFieldID(fieldid)
+                .setOffset(offset)
+                .setBaseType(baset)
+                .setContainer(container);
+        field = factory.newVariable(name, baset.getType());
+        field.annotate(notes);
+        notes.set(field);
         // set dimsizes
         if(dimsizes.length > 0) {
             for(int i = 0; i < dimsizes.length; i++) {
@@ -350,12 +337,10 @@ public class Nc4DMRCompiler
             }
         }
         ds.addField(field);
-        if(parent != null)
-            field.setParent(parent);
-        assert field.getParent() != null;
+        return field;
     }
 
-    protected void
+    protected DapVariable
     buildvar(int gid, int vid)
             throws DapException
     {
@@ -375,7 +360,7 @@ public class Nc4DMRCompiler
         if(xtype == null)
             throw new DapException("Unknown type id: " + xtype.id);
         DapVariable var;
-        switch (((DapType)xtype.node).getTypeSort()) {
+        switch (((DapType) xtype.node).getTypeSort()) {
         default: /* atomic */
             var = factory.newVariable(name, xtype.getType());
             var.annotate(vi);
@@ -385,11 +370,11 @@ public class Nc4DMRCompiler
             var.annotate(vi);
             break;
         case Structure:
-            DapStructure st = (DapStructure) xtype.getDecl();
+            DapStructure st = (DapStructure) xtype.get();
             var = factory.newVariable(name, xtype.getType());
             break;
         case Sequence:
-            DapSequence seq = (DapSequence) xtype.getDecl();
+            DapSequence seq = (DapSequence) xtype.get();
             var = factory.newVariable(name, xtype.getType());
             break;
         }
@@ -400,25 +385,20 @@ public class Nc4DMRCompiler
             DimNotes di = DimNotes.find(dimids[i]);
             if(di == null)
                 throw new DapException("Undefined variable dimension id: " + dimids[i]);
-            var.addDimension(di.getDim());
+            var.addDimension(di.get());
         }
         // Now, if this is of type opaque, tag it with the size
         if(xtype.isOpaque()) {
             DapAttribute sizetag = factory.newAttribute(UCARTAGOPAQUE, DapType.INT64);
-            sizetag.setValues(new Object[]{(long) xtype.opaquelen});
+            sizetag.setValues(new Object[]{(long) xtype.getSize()});
             var.addAttribute(sizetag);
-        }
-        // If struct or sequence, make var the parent of the fields
-        if(var.isCompound()) {
-            DapStructure ds = (DapStructure)var.getBaseType();
-            for(DapVariable field: ds.getFields())
-                field.setParent(var);
         }
         // fill in any attributes
         String[] attnames = getAttributes(gid, vid);
         for(String a : attnames) {
             buildattr(gid, vid, a);
         }
+        return var;
     }
 
     protected void
@@ -436,7 +416,8 @@ public class Nc4DMRCompiler
         TypeNotes baset = TypeNotes.find(basetype);
         if(baset == null)
             throw new DapException("Undefined vlen basetype: " + basetype);
-        makeField(ti, 0, vname, baset, 0, new int[0],null);
+        DapVariable field = makeField(ti, 0, vname, baset, 0, new int[0]);
+        field.setParent(ds);
         // Annotate to indicate that this came from a vlen
         DapAttribute tag = factory.newAttribute(UCARTAGVLEN, DapType.INT8);
         tag.setValues(new Object[]{(Byte) (byte) 1});
@@ -463,10 +444,10 @@ public class Nc4DMRCompiler
         da.setValues(values);
         if(isglobal) {
             GroupNotes gi = GroupNotes.find(gid);
-            gi.getGroup().addAttribute(da);
+            gi.get().addAttribute(da);
         } else {
             VarNotes vi = VarNotes.find(gid, vid);
-            vi.getVar().addAttribute(da);
+            vi.get().addAttribute(da);
         }
     }
 
@@ -482,9 +463,9 @@ public class Nc4DMRCompiler
         n = ip.getValue();
         int[] grpids;
         if(n > 0) {
-            Memory mem = Mem.allocate(NC_INT_BYTES * n);
-            errcheck(ret = nc4.nc_inq_grps(gid, ip, mem));
-            grpids = mem.getIntArray(0, n);
+            Nc4Pointer mem = Nc4DSP.Nc4Pointer.allocate(NC_INT_BYTES * n);
+            errcheck(ret = nc4.nc_inq_grps(gid, ip, mem.p));
+            grpids = mem.p.getIntArray(0, n);
         } else
             grpids = new int[0];
         return grpids;
@@ -500,9 +481,9 @@ public class Nc4DMRCompiler
         n = ip.getValue();
         int[] dimids;
         if(n > 0) {
-            Memory mem = Mem.allocate(NC_INT_BYTES * n);
-            errcheck(ret = nc4.nc_inq_dimids(gid, ip, mem, NC_FALSE));
-            dimids = mem.getIntArray(0, n);
+            Nc4Pointer mem = Nc4DSP.Nc4Pointer.allocate(NC_INT_BYTES * n);
+            errcheck(ret = nc4.nc_inq_dimids(gid, ip, mem.p, NC_FALSE));
+            dimids = mem.p.getIntArray(0, n);
         } else
             dimids = new int[0];
         return dimids;
@@ -520,9 +501,9 @@ public class Nc4DMRCompiler
         if(n == 0)
             dimids = new int[0];
         else {
-            Memory mem = Mem.allocate(NC_INT_BYTES * n);
-            errcheck(ret = nc4.nc_inq_unlimdims(gid, ip, mem));
-            dimids = mem.getIntArray(0, n);
+            Nc4Pointer mem = Nc4Pointer.allocate(NC_INT_BYTES * n);
+            errcheck(ret = nc4.nc_inq_unlimdims(gid, ip, mem.p));
+            dimids = mem.p.getIntArray(0, n);
         }
         return dimids;
     }
@@ -537,9 +518,9 @@ public class Nc4DMRCompiler
         n = ip.getValue();
         int[] typeids;
         if(n > 0) {
-            Memory mem = Mem.allocate(NC_INT_BYTES * n);
-            errcheck(ret = nc4.nc_inq_typeids(gid, ip, mem));
-            typeids = mem.getIntArray(0, n);
+            Nc4Pointer mem = Nc4DSP.Nc4Pointer.allocate(NC_INT_BYTES * n);
+            errcheck(ret = nc4.nc_inq_typeids(gid, ip, mem.p));
+            typeids = mem.p.getIntArray(0, n);
         } else
             typeids = new int[0];
         return typeids;
@@ -555,9 +536,9 @@ public class Nc4DMRCompiler
         n = ip.getValue();
         int[] ids;
         if(n > 0) {
-            Memory mem = Mem.allocate(NC_INT_BYTES * n);
-            errcheck(ret = nc4.nc_inq_varids(gid, ip, mem));
-            ids = mem.getIntArray(0, n);
+            Nc4Pointer mem = Nc4DSP.Nc4Pointer.allocate(NC_INT_BYTES * n);
+            errcheck(ret = nc4.nc_inq_varids(gid, ip, mem.p));
+            ids = mem.p.getIntArray(0, n);
         } else
             ids = new int[0];
         return ids;
@@ -575,9 +556,9 @@ public class Nc4DMRCompiler
             IntByReference ndimsp = new IntByReference();
             IntByReference xtypep = new IntByReference();
             IntByReference nattsp = new IntByReference();
-            Memory mem = Mem.allocate(NC_INT_BYTES * ndims);
-            errcheck(ret = nc4.nc_inq_var(gid, vid, namep, xtypep, ndimsp, mem, nattsp));
-            dimids = mem.getIntArray(0, ndims);
+            Nc4Pointer mem = Nc4Pointer.allocate(NC_INT_BYTES * ndims);
+            errcheck(ret = nc4.nc_inq_var(gid, vid, namep, xtypep, ndimsp, mem.p, nattsp));
+            dimids = mem.p.getIntArray(0, ndims);
         } else
             dimids = new int[0];
         return dimids;
@@ -594,10 +575,10 @@ public class Nc4DMRCompiler
             SizeTByReference offsetp = new SizeTByReference();
             IntByReference fieldtypep = new IntByReference();
             IntByReference ndimsp = new IntByReference();
-            Memory mem = Mem.allocate(NC_INT_BYTES * ndims);
+            Nc4Pointer mem = Nc4Pointer.allocate(NC_INT_BYTES * ndims);
             errcheck(ret = nc4.nc_inq_compound_field(gid, tid, fid, name,
-                    offsetp, fieldtypep, ndimsp, mem));
-            dimsizes = mem.getIntArray(0, ndims);
+                    offsetp, fieldtypep, ndimsp, mem.p));
+            dimsizes = mem.p.getIntArray(0, ndims);
         } else
             dimsizes = new int[0];
         return dimsizes;
@@ -656,47 +637,47 @@ public class Nc4DMRCompiler
         if(count > 0) {
             int ret;
             long totalsize = nativetypesize * count;
-            Memory mem = Mem.allocate(totalsize);
-            errcheck(ret = nc4.nc_get_att(gid, vid, name, mem));
+            Nc4Pointer mem = Nc4Pointer.allocate(totalsize);
+            errcheck(ret = nc4.nc_get_att(gid, vid, name, mem.p));
             switch (base.getType().getTypeSort()) {
             case Char:
-                values = mem.getByteArray(0, count);
+                values = mem.p.getByteArray(0, count);
                 break;
             case Int8:
-                values = mem.getByteArray(0, count);
+                values = mem.p.getByteArray(0, count);
                 break;
             case UInt8:
-                values = mem.getByteArray(0, count);
+                values = mem.p.getByteArray(0, count);
                 break;
             case Int16:
-                values = mem.getShortArray(0, count);
+                values = mem.p.getShortArray(0, count);
                 break;
             case UInt16:
-                values = mem.getShortArray(0, count);
+                values = mem.p.getShortArray(0, count);
                 break;
             case Int32:
-                values = mem.getIntArray(0, count);
+                values = mem.p.getIntArray(0, count);
                 break;
             case UInt32:
-                values = mem.getIntArray(0, count);
+                values = mem.p.getIntArray(0, count);
                 break;
             case Int64:
-                values = mem.getLongArray(0, count);
+                values = mem.p.getLongArray(0, count);
                 break;
             case UInt64:
-                values = mem.getLongArray(0, count);
+                values = mem.p.getLongArray(0, count);
                 break;
             case Float32:
-                values = mem.getFloatArray(0, count);
+                values = mem.p.getFloatArray(0, count);
                 break;
             case Float64:
-                values = mem.getDoubleArray(0, count);
+                values = mem.p.getDoubleArray(0, count);
                 break;
             case String:
-                values = mem.getStringArray(0, count);
+                values = mem.p.getStringArray(0, count);
                 break;
             case Opaque:
-                values = mem.getByteArray(0, (int) totalsize);
+                values = mem.p.getByteArray(0, (int) totalsize);
                 break;
             case Enum:
                 break;

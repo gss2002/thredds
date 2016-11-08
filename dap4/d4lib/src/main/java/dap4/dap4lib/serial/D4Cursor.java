@@ -4,10 +4,10 @@
 
 package dap4.dap4lib.serial;
 
-import dap4.core.data.DSP;
 import dap4.core.data.DataCursor;
 import dap4.core.dmr.*;
 import dap4.core.util.*;
+import dap4.dap4lib.AbstractCursor;
 import dap4.dap4lib.LibTypeFcns;
 
 import java.nio.ByteBuffer;
@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public class D4Cursor implements DataCursor
+public class D4Cursor extends AbstractCursor
 {
     //////////////////////////////////////////////////
     // Mnemonics
@@ -26,11 +26,6 @@ public class D4Cursor implements DataCursor
     //////////////////////////////////////////////////
     // Instance Variables
 
-    protected Scheme scheme;
-
-    protected D4DSP dsp;
-    protected DapNode template;
-
     protected long offset = NULLOFFSET;
 
     protected long[] bytestrings = null;
@@ -38,103 +33,111 @@ public class D4Cursor implements DataCursor
     // For debugging purposes, we keep these separate,
     // but some merging could be done .
 
-    protected D4Cursor[] elements = null; // scheme == STRUCTURE|SEQUENCE
-    protected D4Cursor[] fields = null; // scheme == STRUCTURE|SEQUENCE
-    protected List<D4Cursor> records = null; // scheme == SEQUENCE
+    // Track the array elements for a structure array
+    protected D4Cursor[] elements = null; // scheme == STRUCTARRAY|SEQARRAY
 
-    // Computed instance variables
-    DapSort sort;
+    // Track the fields of a structure instance
+    protected D4Cursor[] fieldcursors = null; // scheme == STRUCTURE|SEQUENCE
+
+    // Track the records of a sequence instance
+    protected List<D4Cursor> records = null; // scheme == SEQUENCE
 
     //////////////////////////////////////////////////
     // Constructor(s)
 
-    public D4Cursor(Scheme scheme, D4DSP dsp, DapNode template)
+    public D4Cursor(Scheme scheme, D4DSP dsp, DapNode template, D4Cursor container)
     {
-        this.scheme = scheme;
-        this.dsp = dsp;
-        this.template = template;
-        this.sort = template.getSort();
-    }
-
-    public String toString()
-    {
-        StringBuilder buf = new StringBuilder();
-        buf.append(getScheme().toString());
-        if(getScheme() == Scheme.STRUCTARRAY || getScheme() == Scheme.SEQARRAY)
-            buf.append("[]");
-        buf.append(":");
-        buf.append(getTemplate().getFQN());
-        return buf.toString();
+        super(scheme, dsp, template, container);
     }
 
     //////////////////////////////////////////////////
-    // DataCursor API
+    // DataCursor API (Except as Implemented in AbstractCursor)
+
 
     @Override
-    public Scheme getScheme()
-    {
-        return this.scheme;
-    }
-
-    @Override
-    public DSP getDSP()
-    {
-        return this.dsp;
-    }
-
-    @Override
-    public DapNode getTemplate()
-    {
-        return this.template;
-    }
-
-    public Object
-    read(List<Slice> slices)
-            throws DapException
-    {
-        try {
-            DataCursor[] instances = null;
-            switch (this.scheme) {
-            case ATOMIC:
-                return readAtomic(slices);
-            case STRUCTARRAY:
-                Odometer odom = Odometer.factory(slices);
-                instances = new DataCursor[(int) odom.totalSize()];
-                for(int i = 0; odom.hasNext(); i++) {
-                    instances[i] = readStructure(odom.next());
-                }
-                return instances;
-            case SEQARRAY:
-                odom = Odometer.factory(slices);
-                instances = new DataCursor[(int) odom.totalSize()];
-                for(int i = 0; odom.hasNext(); i++) {
-                    instances[i] = readSequence(odom.next());
-                }
-                return instances;
-            default:
-                throw new DapException("Unexpected data cursor type: " + this.scheme);
-            }
-        } catch (DapException e) {
-            throw new DapException(e);
-        }
-    }
-
     public Object
     read(Index index)
             throws DapException
     {
+        return read(DapUtil.indexToSlices(index));
+    }
+
+    @Override
+    public Object
+    read(List<Slice> slices)
+            throws DapException
+    {
         switch (this.scheme) {
         case ATOMIC:
-            return readAtomic(DapUtil.indexToSlices(index, (DapVariable) getTemplate()));
+            return readAtomic(slices);
         case STRUCTARRAY:
-            return readStructure(index);
+	    
+	    // Read the structures specified by slices 
+            Odometer odom = Odometer.factory(slices);
+            D4Cursor[] instances = new D4Cursor[(int) odom.totalSize()];
+            for(int i = 0; odom.hasNext(); i++) {
+                instances[i] = readStructure(odom.next());
+            }
+            return instances;
         case SEQARRAY:
-            return readSequence(index);
+            odom = Odometer.factory(slices);
+            instances = new D4Cursor[(int) odom.totalSize()];
+            for(int i = 0; odom.hasNext(); i++) {
+                instances[i] = readSequence(odom.next());
+            }
+            return instances;
         default:
-            break;
+            throw new DapException("Attempt to slice a scalar object");
         }
-        throw new DapException("Unexpected cursor scheme: " + this.scheme);
     }
+
+    @Override
+    public Object
+    readField(int findex, Index index)
+            throws DapException
+    {
+        return readField(findex, DapUtil.indexToSlices(index));
+    }
+
+    @Override
+    public Object readField(int findex, List<Slice> slices)
+	throws DapException
+    {
+        assert (this.scheme == scheme.RECORD || this.scheme == scheme.STRUCTURE);
+        if(findex < 0 || findex >= fieldcursors.length)
+            throw new DapException("Field index out of range: " + findex);
+        DapVariable vstruct = (DapVariable) getTemplate();
+        DapStructure struct = (DapStructure) vstruct.getBaseType();
+        D4Cursor field = fieldcursors[findex];
+        DapVariable vfield = (DapVariable) getTemplate();
+        DapType ftype = vfield.getBaseType();
+        if(ftype.getTypeSort().isAtomic())
+            return readAs(vfield, ftype, slices);
+        // Else it should be a compound typed field
+        D4Cursor[] instances = (D4Cursor[])field.read(slices);
+        return instances;
+    }
+
+    @Override
+    public DataCursor
+    getRecord(long i)
+    {
+        assert (this.scheme == Scheme.SEQUENCE);
+        if(this.records == null || i < 0 || i > this.records.size())
+            throw new IndexOutOfBoundsException("No such record: " + i);
+        return this.records.get((int) i);
+    }
+
+    @Override
+    public long
+    getRecordCount()
+    {
+        assert (this.scheme == Scheme.SEQUENCE);
+        return this.records == null ? 0 : this.records.size();
+    }
+
+    //////////////////////////////////////////////////
+    // Support methods
 
     protected Object
     readAtomic(List<Slice> slices)
@@ -180,7 +183,7 @@ public class D4Cursor implements DataCursor
     readContig(List<Slice> slices, DapType basetype, long count, Odometer odom, Object result)
             throws DapException
     {
-        ByteBuffer alldata = this.dsp.getBuffer();
+        ByteBuffer alldata = ((D4DSP) this.dsp).getBuffer();
         long off = this.offset;
         long ix = odom.indices().index();
         int elemsize = basetype.getSize();
@@ -231,7 +234,7 @@ public class D4Cursor implements DataCursor
     readOdom(List<Slice> slices, DapType basetype, Odometer odom, Object result)
             throws DapException
     {
-        ByteBuffer alldata = this.dsp.getBuffer();
+        ByteBuffer alldata = ((D4DSP) this.dsp).getBuffer();
         alldata.position((int) this.offset);
         ByteBuffer slice = alldata.slice();
         slice.order(alldata.order());
@@ -294,7 +297,7 @@ public class D4Cursor implements DataCursor
         return result;
     }
 
-    public D4Cursor
+    protected D4Cursor
     readStructure(Index index)
             throws DapException
     {
@@ -318,31 +321,6 @@ public class D4Cursor implements DataCursor
         return this.elements[(int) pos];
     }
 
-    public long
-    getRecordCount()
-    {
-        assert (this.scheme == Scheme.SEQUENCE);
-        return this.records == null ? 0 : this.records.size();
-    }
-
-    public DataCursor
-    getRecord(long i)
-    {
-        assert (this.scheme == Scheme.SEQUENCE);
-        if(this.records == null || i < 0 || i > this.records.size())
-            throw new IndexOutOfBoundsException("No such record: " + i);
-        return this.records.get((int) i);
-    }
-
-    public DataCursor
-    getField(int i)
-    {
-        assert (this.scheme == Scheme.RECORD || this.scheme == Scheme.STRUCTURE);
-        if(this.fields == null || i < 0 || i > this.fields.length)
-            throw new IndexOutOfBoundsException("No such field: " + i);
-        return this.fields[(int) i];
-    }
-
     //////////////////////////////////////////////////
     // D4Cursor Extensions
 
@@ -362,6 +340,10 @@ public class D4Cursor implements DataCursor
             throw new IndexOutOfBoundsException("Adding element outside dimensions");
         if(this.elements[(int) pos] != null)
             throw new IndexOutOfBoundsException("Adding duplicate element at position:" + pos);
+        // Convert pos to index
+        long[] dimsizes = DapUtil.getDimSizes(var.getDimensions());
+        Index i = Index.offsetToIndex(pos, dimsizes);
+        dc.setIndex(index);
         this.elements[(int) pos] = dc;
         return this;
     }
@@ -385,14 +367,14 @@ public class D4Cursor implements DataCursor
     {
         if(getScheme() != Scheme.RECORD && getScheme() != Scheme.STRUCTURE)
             throw new IllegalStateException("Adding field to non-(structure|record) object");
-        if(this.fields == null) {
-            DapStructure ds = (DapStructure)((DapVariable)getTemplate()).getBaseType();
+        if(this.fieldcursors == null) {
+            DapStructure ds = (DapStructure) ((DapVariable) getTemplate()).getBaseType();
             List<DapVariable> fields = ds.getFields();
-            this.fields = new D4Cursor[fields.size()];
+            this.fieldcursors = new D4Cursor[fields.size()];
         }
-        if(this.fields[m] != null)
+        if(this.fieldcursors[m] != null)
             throw new IndexOutOfBoundsException("Adding duplicate fields at position:" + m);
-        this.fields[m] = field;
+        this.fieldcursors[m] = field;
         return this;
     }
 
@@ -430,4 +412,5 @@ public class D4Cursor implements DataCursor
         long n = b.getLong();
         return n;
     }
+
 }

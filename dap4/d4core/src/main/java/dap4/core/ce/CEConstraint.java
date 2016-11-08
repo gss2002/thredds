@@ -281,7 +281,7 @@ public class CEConstraint implements Constraint
         universals.remove(dmr);
     }
 
-    static protected Object
+    static protected DataCursor
     fieldValue(DapVariable sqvar, DapSequence seq, DataCursor record, String field)
             throws DapException
     {
@@ -293,10 +293,10 @@ public class CEConstraint implements Constraint
         if(dapv.getRank() > 0)
             throw new DapException("Non-scalar variable in filter: " + field);
         int fieldindex = seq.indexByName(field);
-        DataCursor da = (DataCursor) (record.getField(fieldindex));
+        DataCursor da = (DataCursor) (record.readField(fieldindex,Index.SCALAR));
         if(da == null)
             throw new DapException("No such field: " + field);
-        return da.read(Index.SCALAR);
+        return da;
     }
 
     static protected int

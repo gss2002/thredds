@@ -12,7 +12,6 @@ import dap4.core.dmr.DapStructure;
 import dap4.core.dmr.DapType;
 import dap4.core.dmr.DapVariable;
 import dap4.core.util.DapException;
-import dap4.core.util.DapSort;
 import dap4.core.util.DapUtil;
 import dap4.core.util.Slice;
 import dap4.dap4lib.LibTypeFcns;
@@ -104,8 +103,7 @@ CDMArrayStructure extends ArrayStructure implements CDMArray
         super(computemembers((DapVariable) data.getTemplate()),
                 CDMUtil.computeEffectiveShape(((DapVariable) data.getTemplate()).getDimensions()));
         this.template = (DapVariable) data.getTemplate();
-        assert (this.template.getRank() == 0 && data.getScheme() == Scheme.STRUCTURE)
-                || data.getScheme() == Scheme.STRUCTARRAY;
+        assert data.getScheme() == Scheme.STRUCTARRAY;
         this.dsp = data.getDSP();
         this.cdmroot = cdmroot;
         this.basetype = this.template.getBaseType();

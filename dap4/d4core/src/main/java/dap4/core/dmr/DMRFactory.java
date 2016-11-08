@@ -5,6 +5,10 @@ package dap4.core.dmr;
 
 public class DMRFactory
 {
+    /////////////////////////////////////////////////
+
+    static public boolean DEBUG = true;
+
     //////////////////////////////////////////////////
     // Constructor
     public DMRFactory()
@@ -17,73 +21,102 @@ public class DMRFactory
     public DapAttribute
     newAttribute(String name, DapType basetype)
     {
-        return new DapAttribute(name, basetype);
+	DapAttribute node = new DapAttribute(name, basetype);
+	return node;
     }
 
     public DapAttributeSet
     newAttributeSet(String name)
     {
-        return new DapAttributeSet(name);
+	DapAttributeSet node = new DapAttributeSet(name);
+	if(DEBUG) debug(node);
+	return node;
     }
 
     public DapOtherXML
     newOtherXML(String name)
     {
-        return new DapOtherXML(name);
+	DapOtherXML node = new DapOtherXML(name);
+	if(DEBUG) debug(node);
+	return node;
     }
 
     public DapDimension
     newDimension(String name, long size)
     {
-        return new DapDimension(name, size);
+	DapDimension node = new DapDimension(name, size);
+	if(DEBUG) debug(node);
+	return node;
     }
 
     public DapMap
     newMap(DapVariable target)
     {
-        return new DapMap(target);
+	DapMap node = new DapMap(target);
+	if(DEBUG) debug(node);
+	return node;
     }
 
     public DapVariable
     newVariable(String name, DapType t)
     {
-        return new DapVariable(name, t);
+	DapVariable node = new DapVariable(name, t);
+	if(DEBUG) debug(node);
+	return node;
     }
 
     public DapGroup
     newGroup(String name)
     {
-        return new DapGroup(name);
+	DapGroup node = new DapGroup(name);
+	if(DEBUG) debug(node);
+	return node;
     }
 
     public DapDataset
     newDataset(String name)
     {
-        return new DapDataset(name);
+	DapDataset node = new DapDataset(name);
+	if(DEBUG) debug(node);
+	return node;
     }
 
     public DapEnumeration
     newEnumeration(String name, DapType basetype)
     {
-        return new DapEnumeration(name, basetype);
+	DapEnumeration node = new DapEnumeration(name, basetype);
+	if(DEBUG) debug(node);
+	return node;
     }
 
     public DapEnumConst
     newEnumConst(String name, long value)
     {
-        return new DapEnumConst(name, value);
+	DapEnumConst node = new DapEnumConst(name, value);
+	if(DEBUG) debug(node);
+	return node;
     }
 
     public DapStructure
     newStructure(String name)
     {
-        return new DapStructure(name);
+	DapStructure node = new DapStructure(name);
+	if(DEBUG) debug(node);
+	return node;
     }
 
     public DapSequence
     newSequence(String name)
     {
-        return new DapSequence(name);
+	DapSequence node = new DapSequence(name);
+	if(DEBUG) debug(node);
+	return node;
+    }
+
+    protected void
+    debug(DapNode node)
+    {
+	System.err.printf("NEW: %s%n",node.toString());
     }
 
 }

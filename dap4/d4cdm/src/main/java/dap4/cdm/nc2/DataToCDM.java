@@ -15,7 +15,6 @@ import ucar.nc2.Attribute;
 import ucar.nc2.Group;
 import ucar.nc2.Variable;
 
-import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -170,7 +169,7 @@ public class DataToCDM
             while(odom.hasNext()) {
                 Index index = odom.next();
                 long offset = index.index();
-                DataCursor ithelement = (DataCursor) data.read(index);
+                DataCursor ithelement = data.getVariable(index);
                 for(int f = 0; f < nmembers; f++) {
                     DataCursor dc = ithelement.getField(f);
                     Array afield = createVar(dc);

@@ -178,16 +178,14 @@ public class CDMDSP extends AbstractDSP
                 scheme = DataCursor.Scheme.ATOMIC;
                 break;
             case Structure:
-                scheme = (var.getRank() == 0 ? DataCursor.Scheme.STRUCTURE
-                        : DataCursor.Scheme.STRUCTARRAY);
+                scheme = DataCursor.Scheme.STRUCTARRAY;
                 break;
             case Sequence:
-                scheme = (var.getRank() == 0 ? DataCursor.Scheme.SEQUENCE
-                        : DataCursor.Scheme.SEQARRAY);
+                scheme = DataCursor.Scheme.SEQARRAY;
                 break;
             }
             try {
-                vardata = new CDMCursor(scheme, var, this).setArray(cdmvar.read());
+                vardata = new CDMCursor(scheme, this, var, null).setArray(cdmvar.read());
             } catch (IOException e) {
                 throw new DapException(e);
             }

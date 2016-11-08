@@ -1,4 +1,4 @@
- /* Copyright 2012, UCAR/Unidata.
+/* Copyright 2012, UCAR/Unidata.
    See the LICENSE file for more information.
 */
 
@@ -14,12 +14,16 @@ import java.util.List;
 /**
  * For data access, we adopt a cursor model.
  * This comes from database technology where a
- * cursor object is used to walk over the results
- * of a database query.
- * Here the cursor walks the underlying data
- * and stores enough state to extract data depending
- * on its sort. The cursor may (or may not)
- * contain internal subclasses to track various kinds of state.
+ * cursor object is used to walk over the
+ * results of a database query.  Here the cursor
+ * walks the underlying data and stores enough
+ * state to extract data depending on its
+ * sort. The cursor may (or may not) contain
+ * internal subclasses to track various kinds of
+ * state.  Note: scalar compound objects use
+ * Scheme STRUCT/SEQ Array, but return true for
+ * the isScalar() method. This is so there is a
+ * consistent process of e.g. STRUCTARRAY->STRUCTURE.
  */
 
 public interface DataCursor
@@ -29,12 +33,17 @@ public interface DataCursor
 
     static public enum Scheme
     {
+        ATOMIC,
         STRUCTARRAY,
-        SEQARRAY,
         STRUCTURE,
+        SEQARRAY,
         SEQUENCE,
-        RECORD,
-        ATOMIC;
+        RECORD;
+
+        public boolean isCompoundArray()
+        {
+            return this == STRUCTARRAY || this == SEQARRAY;
+        }
     }
 
     //////////////////////////////////////////////////
@@ -46,6 +55,15 @@ public interface DataCursor
 
     public DapNode getTemplate();
 
+    public Index getIndex() throws DapException;
+
+    public boolean isScalar();
+
+    public boolean isField();
+
+    // Return null if top-level, else return the struct/seq from which this is derived
+    public DataCursor getContainer();
+
     //////////////////////////////////////////////////
     // Atomic Data Management
 
@@ -54,6 +72,10 @@ public interface DataCursor
     // Returns:
     // atomic - array of data values
     // structure/sequence - DataCursor[]
+    // As noted above, even if the result is a scalar,
+    // an array will be returned.
+    // Field access is an exception. You must specify both the field
+    // index (or name) and the slicing information.
 
     public Object read(List<Slice> slices) throws DapException;
 
@@ -63,24 +85,16 @@ public interface DataCursor
     // Sequence record management
     // assert scheme == SEQUENCE
 
-    default
-    public long getRecordCount()
-            throws DapException
-    {
-        throw new UnsupportedOperationException("Not a Sequence");
-    }
+    public long getRecordCount() throws DapException;
 
-    default
-    public DataCursor getRecord(long i)
-            throws DapException
-    {
-        throw new UnsupportedOperationException("Not a Sequence");
-    }
+    public DataCursor getRecord(long i) throws DapException;
 
     //////////////////////////////////////////////////
     // field management
     // assert scheme == STRUCTURE | scheme == RECORD
 
-    public DataCursor getField(int i) throws DapException;
+    public int fieldIndex(String name) throws DapException; // Convert a name to an index
 
+    public Object readField(int fieldindex, List<Slice> slices) throws DapException;
+    public Object readField(int fieldindex, Index index) throws DapException;
 }

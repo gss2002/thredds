@@ -65,7 +65,7 @@ abstract public class DapNode
     /**
      * DAP Attributes attached to this node (as opposed to the xml attributes)
      */
-    protected Map<String, DapAttribute> attributes = null;
+    protected Map<String, DapAttribute> attributes = new HashMap<>();
 
     //////////////////////////////////////////////////
     // Constructors
@@ -311,8 +311,12 @@ abstract public class DapNode
     {
         assert (
                 (this.getSort() == DapSort.ENUMCONST && parent.getSort() == DapSort.ENUMERATION)
-                || parent.getSort().isa(DapSort.GROUP)
-                || parent.getSort() == DapSort.VARIABLE);
+                        || parent.getSort().isa(DapSort.GROUP)
+                        || parent.getSort() == DapSort.VARIABLE
+                        || parent.getSort() == DapSort.STRUCTURE
+                        || this.getSort() == DapSort.ATTRIBUTE
+                        || this.getSort() == DapSort.ATTRIBUTESET
+        );
         this.parent = parent;
     }
 
