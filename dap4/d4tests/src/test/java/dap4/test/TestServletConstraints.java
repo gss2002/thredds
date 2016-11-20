@@ -190,11 +190,11 @@ public class TestServletConstraints extends DapTestCommon
     chooseTestcases()
     {
         if(false) {
-            chosentests = locate(1);
+            chosentests = locate(6);
             prop_visual = true;
-            prop_debug = true;
+            prop_debug = false;
             prop_generate = false;
-            prop_baseline = true;
+            prop_baseline = false;
         } else {
             for(TestCase tc : alltestcases) {
                 chosentests.add(tc);

@@ -164,7 +164,7 @@ public class TestServlet extends DapTestCommon
     protected void
     chooseTestcases()
     {
-        if(true) {
+        if(false) {
             chosentests = locate("test_sequence_2.syn");
             prop_visual = true;
             prop_generate = false;

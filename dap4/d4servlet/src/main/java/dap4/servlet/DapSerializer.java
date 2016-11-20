@@ -9,10 +9,7 @@ import dap4.core.data.ChecksumMode;
 import dap4.core.data.DSP;
 import dap4.core.data.DataCursor;
 import dap4.core.dmr.*;
-import dap4.core.util.DapUtil;
-import dap4.core.util.Index;
-import dap4.core.util.Odometer;
-import dap4.core.util.Slice;
+import dap4.core.util.*;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -128,7 +125,7 @@ public class DapSerializer
         // get the slices from constraint
         List<Slice> slices = ce.getConstrainedSlices(template);
         if(slices == null)
-            throw new dap4.core.util.DapException("Unknown variable: " + template.getFQN());
+            throw new DapException("Unknown variable: " + template.getFQN());
         Object values = data.read(slices);
         dst.writeAtomicArray(basetype, values);
     }
@@ -153,7 +150,7 @@ public class DapSerializer
         while(odom.hasNext()) {
             Index index = odom.next();
             DataCursor[] instance = (DataCursor[]) data.read(index);
-            writeStructure1(instance[(int)index.index()], dst);
+            writeStructure1(instance[0], dst);
         }
     }
 
@@ -203,7 +200,7 @@ public class DapSerializer
         while(odom.hasNext()) {
             Index index = odom.next();
             DataCursor[] instance = (DataCursor[]) data.read(index);
-            writeSequence1(instance[(int)index.index()], dst);
+            writeSequence1(instance[0], dst);
         }
     }
 

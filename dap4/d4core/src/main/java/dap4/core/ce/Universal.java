@@ -103,6 +103,13 @@ public class Universal extends CEConstraint
         if(slices != null)
             return slices;
         // Create a universal slice
+        return universalSlices(var);
+    }
+
+    static public List<Slice>
+    universalSlices(DapVariable var)
+            throws DapException
+    {
         return DapUtil.dimsetToSlices(var.getDimensions());
     }
 

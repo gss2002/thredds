@@ -45,6 +45,7 @@ public class Slice
         Single, Multi;
     }
 
+    // Define a set of slices indicating the canonical scalar set
     static public List<Slice> SCALARSLICES;
 
     static {

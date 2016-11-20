@@ -144,7 +144,8 @@ public class CEConstraint implements Constraint
         {
             StringBuilder buf = new StringBuilder();
             buf.append(var.getFQN());
-            buf.append(slices.toString());
+            if(slices != null)
+                buf.append(slices.toString());
             if(this.filter != null) {
                 buf.append("|");
                 buf.append(filter.toString());
@@ -482,10 +483,13 @@ public class CEConstraint implements Constraint
     getConstrainedSlices(DapVariable var)
             throws DapException
     {
+        List<Slice> slices = null;
         Segment seg = findSegment(var);
-        if(seg == null)
-            return null;
-        return seg.slices;
+        if(seg != null)
+            slices = seg.slices;
+        if(slices == null)
+            slices = Universal.universalSlices(var);
+        return slices;
     }
 
     public List<DapDimension>
