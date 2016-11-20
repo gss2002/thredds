@@ -5,11 +5,12 @@
 package dap4.servlet;
 
 import dap4.core.data.ChecksumMode;
+import dap4.core.data.DataCursor;
 import dap4.core.dmr.DapType;
+import dap4.core.dmr.DapVariable;
 import dap4.core.dmr.TypeSort;
 import dap4.core.util.DapException;
 import dap4.core.util.DapUtil;
-import dap4.core.util.Escape;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -114,6 +115,7 @@ public class SerialWriter
             throws IOException
     {
         TypeSort atomtype = vtype.getAtomicType();
+        assert values != null && values.getClass().isArray();
         int count = Array.getLength(values);
         int total = (int) TypeSort.getSize(atomtype) * count;
         ByteBuffer buf = ByteBuffer.allocate(total).order(order);
@@ -249,7 +251,7 @@ public class SerialWriter
             byte[] csum = crcbuffer.array();
             assert csum.length == 4;
             // convert to a string; write as a signed integer
-            this.lastchecksum = String.format("%08x",crc);
+            this.lastchecksum = String.format("%08x", crc);
             if(DEBUG) {
                 System.err.print("checksum = " + this.lastchecksum);
                 System.err.println();
@@ -286,14 +288,15 @@ public class SerialWriter
     /**
      * Write out an array of atomic values
      *
-     * @param daptype the type of the object
-     * @param values  the array of values
+     * @param daptype type of the values
+     * @param values the array of values
      * @throws IOException
      */
     public void
     writeAtomicArray(DapType daptype, Object values)
             throws IOException
     {
+        assert values != null && values.getClass().isArray();
         ByteBuffer buf = SerialWriter.encodeArray(daptype, values, this.order);
         byte[] bytes = buf.array();
         int len = buf.position();

@@ -4,7 +4,6 @@
 
 package dap4.dap4lib.serial;
 
-import dap4.core.data.DataCursor;
 import dap4.core.dmr.*;
 import dap4.core.util.*;
 import dap4.dap4lib.AbstractCursor;
@@ -50,6 +49,37 @@ public class D4Cursor extends AbstractCursor
         super(scheme, dsp, template, container);
     }
 
+    /**
+     * Effectively a clone of c
+     *
+     * @param c cursor to clone
+     */
+    public D4Cursor(D4Cursor c)
+    {
+        super(c);
+        assert false;
+        this.offset = c.offset;
+        this.bytestrings = c.bytestrings;
+        this.fieldcursors = new D4Cursor[c.fieldcursors.length];
+        for(int i = 0; i < c.fieldcursors.length; i++) {
+            D4Cursor dc = c.fieldcursors[i];
+            this.fieldcursors[i] = new D4Cursor(dc);
+            this.fieldcursors[i].setContainer(this); // Change the parent in the clone
+        }
+        this.elements = new D4Cursor[c.elements.length];
+        for(int i = 0; i < c.elements.length; i++) {
+            D4Cursor dc = c.elements[i];
+            this.elements[i] = new D4Cursor(dc);
+            this.elements[i].setContainer(this); // Change the parent in the clone
+        }
+        this.records = new ArrayList<>();
+        for(int i = 0; i < c.records.size(); i++) {
+            D4Cursor dc = c.records.get(i);
+            this.records.add(new D4Cursor(dc));
+            this.records.get(i).setContainer(this); // Change the parent in the clone
+        }
+    }
+
     //////////////////////////////////////////////////
     // DataCursor API (Except as Implemented in AbstractCursor)
 
@@ -70,9 +100,14 @@ public class D4Cursor extends AbstractCursor
         switch (this.scheme) {
         case ATOMIC:
             return readAtomic(slices);
+        case STRUCTURE:
+        case SEQUENCE:
+            if(((DapVariable) this.getTemplate()).getRank() == 0
+                    || DapUtil.isScalarSlices(slices))
+                throw new DapException("Cannot slice a scalar variable");
+            return new D4Cursor(this);
         case STRUCTARRAY:
-	    
-	    // Read the structures specified by slices 
+            // Read the structures specified by slices
             Odometer odom = Odometer.factory(slices);
             D4Cursor[] instances = new D4Cursor[(int) odom.totalSize()];
             for(int i = 0; odom.hasNext(); i++) {
@@ -92,35 +127,21 @@ public class D4Cursor extends AbstractCursor
     }
 
     @Override
-    public Object
-    readField(int findex, Index index)
+    public D4Cursor
+    readField(int findex)
             throws DapException
     {
-        return readField(findex, DapUtil.indexToSlices(index));
-    }
-
-    @Override
-    public Object readField(int findex, List<Slice> slices)
-	throws DapException
-    {
         assert (this.scheme == scheme.RECORD || this.scheme == scheme.STRUCTURE);
-        if(findex < 0 || findex >= fieldcursors.length)
+        DapStructure basetype = (DapStructure) ((DapVariable) getTemplate()).getBaseType();
+        if(findex < 0 || findex >= basetype.getFields().size())
             throw new DapException("Field index out of range: " + findex);
-        DapVariable vstruct = (DapVariable) getTemplate();
-        DapStructure struct = (DapStructure) vstruct.getBaseType();
-        D4Cursor field = fieldcursors[findex];
-        DapVariable vfield = (DapVariable) getTemplate();
-        DapType ftype = vfield.getBaseType();
-        if(ftype.getTypeSort().isAtomic())
-            return readAs(vfield, ftype, slices);
-        // Else it should be a compound typed field
-        D4Cursor[] instances = (D4Cursor[])field.read(slices);
-        return instances;
+        D4Cursor field = this.fieldcursors[findex];
+        return field;
     }
 
     @Override
-    public DataCursor
-    getRecord(long i)
+    public D4Cursor
+    readRecord(long i)
     {
         assert (this.scheme == Scheme.SEQUENCE);
         if(this.records == null || i < 0 || i > this.records.size())
@@ -147,7 +168,8 @@ public class D4Cursor extends AbstractCursor
             throw new DapException("DataCursor.read: null set of slices");
         assert this.scheme == Scheme.ATOMIC;
         DapVariable atomvar = (DapVariable) getTemplate();
-        assert slices != null && slices.size() == atomvar.getRank();
+        int rank = atomvar.getRank();
+        assert slices != null && ((rank == 0 && slices.size() == 1) || (slices.size() == rank));
         DapType basetype = atomvar.getBaseType();
         return readAs(atomvar, basetype, slices);
     }
@@ -325,26 +347,13 @@ public class D4Cursor extends AbstractCursor
     // D4Cursor Extensions
 
     public D4Cursor
-    addElement(long pos, D4Cursor dc)
+    setElements(D4Cursor[] instances)
     {
         if(!(getScheme() == Scheme.SEQARRAY
                 || getScheme() == Scheme.STRUCTARRAY))
             throw new IllegalStateException("Adding element to !(structure|sequence array) object");
         DapVariable var = (DapVariable) getTemplate();
-        if(var.getRank() == 0)
-            throw new IllegalStateException("Adding element to scalar object");
-        if(this.elements == null)
-            this.elements = new D4Cursor[(int) var.getCount()];
-        long avail = (this.elements == null ? 0 : this.elements.length);
-        if(pos < 0 || pos > avail)
-            throw new IndexOutOfBoundsException("Adding element outside dimensions");
-        if(this.elements[(int) pos] != null)
-            throw new IndexOutOfBoundsException("Adding duplicate element at position:" + pos);
-        // Convert pos to index
-        long[] dimsizes = DapUtil.getDimSizes(var.getDimensions());
-        Index i = Index.offsetToIndex(pos, dimsizes);
-        dc.setIndex(index);
-        this.elements[(int) pos] = dc;
+        this.elements = instances;
         return this;
     }
 

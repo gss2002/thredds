@@ -35,6 +35,11 @@ public class DMRPrinter
     static protected final int NONAME = 2; // do not print name xml attribute
     static protected final int NONNIL = 4; // print empty xml attributes
 
+    static protected final String[] SUPPRESS = {
+            "_NCProperties",
+            "_DAP4_Little_Endian"
+    };
+
     //////////////////////////////////////////////////
     // Instance Variables
 
@@ -53,7 +58,7 @@ public class DMRPrinter
 
     public DMRPrinter(DapDataset dmr, PrintWriter writer)
     {
-        this(dmr, null, writer,null);
+        this(dmr, null, writer, null);
     }
 
     public DMRPrinter(DapDataset dmr, CEConstraint ce, PrintWriter writer, ResponseFormat format)
@@ -394,10 +399,18 @@ public class DMRPrinter
     printAttribute(DapAttribute attr)
             throws IOException
     {
+        if(attr.getParent().getSort() == DapSort.DATASET) {
+            for(String s : SUPPRESS) {
+                if(s.equals(attr.getShortName())) return;
+            }
+        }
         printer.marginPrint("<Attribute");
-        printXMLAttributes(attr, ce, NILFLAGS);
-        Object[] values = attr.getValues();
+        printXMLAttribute("name", attr.getShortName(), NILFLAGS);
+        DapType type = attr.getBaseType();
+        printXMLAttribute("type", type.getTypeName(), NILFLAGS);
         printer.println(">");
+        printer.indent();
+        Object[] values = attr.getValues();
         if(values == null)
             throw new DapException("Attribute with no values:" + attr.getFQN());
         printer.indent();

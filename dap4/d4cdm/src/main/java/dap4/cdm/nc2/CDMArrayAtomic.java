@@ -173,62 +173,71 @@ import static dap4.core.data.DataCursor.Scheme;
 
     public double getDouble(int offset)
     {
-        long[] dimsizes = DapUtil.getDimSizes(((DapVariable) getTemplate()).getDimensions());
-        return getDouble(dap4.core.util.Index.offsetToIndex(offset, dimsizes));
+        DapVariable d4var = (DapVariable) getTemplate();
+        long[] dimsizes = DapUtil.getDimSizes(d4var.getDimensions());
+        return getDouble(DapUtil.offsetToIndex(offset, dimsizes));
     }
 
     public float getFloat(int offset)
     {
-        long[] dimsizes = DapUtil.getDimSizes(((DapVariable) getTemplate()).getDimensions());
-        return getFloat(dap4.core.util.Index.offsetToIndex(offset, dimsizes));
+        DapVariable d4var = (DapVariable) getTemplate();
+        long[] dimsizes = DapUtil.getDimSizes(d4var.getDimensions());
+        return getFloat(DapUtil.offsetToIndex(offset, dimsizes));
     }
 
     public long getLong(int offset)
     {
-        long[] dimsizes = DapUtil.getDimSizes(((DapVariable) getTemplate()).getDimensions());
-        return getLong(dap4.core.util.Index.offsetToIndex(offset, dimsizes));
+        DapVariable d4var = (DapVariable) getTemplate();
+        long[] dimsizes = DapUtil.getDimSizes(d4var.getDimensions());
+        return getLong(DapUtil.offsetToIndex(offset, dimsizes));
     }
 
     public int getInt(int offset)
     {
-        long[] dimsizes = DapUtil.getDimSizes(((DapVariable) getTemplate()).getDimensions());
-        return getInt(dap4.core.util.Index.offsetToIndex(offset, dimsizes));
+        DapVariable d4var = (DapVariable) getTemplate();
+        long[] dimsizes = DapUtil.getDimSizes(d4var.getDimensions());
+        return getInt(DapUtil.offsetToIndex(offset, dimsizes));
     }
 
     public short getShort(int offset)
     {
-        long[] dimsizes = DapUtil.getDimSizes(((DapVariable) getTemplate()).getDimensions());
-        return getShort(dap4.core.util.Index.offsetToIndex(offset, dimsizes));
+        DapVariable d4var = (DapVariable) getTemplate();
+        long[] dimsizes = DapUtil.getDimSizes(d4var.getDimensions());
+        return getShort(DapUtil.offsetToIndex(offset, dimsizes));
     }
 
     public byte getByte(int offset)
     {
-        long[] dimsizes = DapUtil.getDimSizes(((DapVariable) getTemplate()).getDimensions());
-        return getByte(dap4.core.util.Index.offsetToIndex(offset, dimsizes));
+        DapVariable d4var = (DapVariable) getTemplate();
+        long[] dimsizes = DapUtil.getDimSizes(d4var.getDimensions());
+        return getByte(DapUtil.offsetToIndex(offset, dimsizes));
     }
 
     public char getChar(int offset)
     {
-        long[] dimsizes = DapUtil.getDimSizes(((DapVariable) getTemplate()).getDimensions());
-        return getChar(dap4.core.util.Index.offsetToIndex(offset, dimsizes));
+        DapVariable d4var = (DapVariable) getTemplate();
+        long[] dimsizes = DapUtil.getDimSizes(d4var.getDimensions());
+        return getChar(DapUtil.offsetToIndex(offset, dimsizes));
     }
 
     public boolean getBoolean(int offset)
     {
-        long[] dimsizes = DapUtil.getDimSizes(((DapVariable) getTemplate()).getDimensions());
-        return getBoolean(dap4.core.util.Index.offsetToIndex(offset, dimsizes));
+        DapVariable d4var = (DapVariable) getTemplate();
+        long[] dimsizes = DapUtil.getDimSizes(d4var.getDimensions());
+        return getBoolean(DapUtil.offsetToIndex(offset, dimsizes));
     }
 
     public Object getObject(int offset)
     {
-        long[] dimsizes = DapUtil.getDimSizes(((DapVariable) getTemplate()).getDimensions());
-        return getObject(dap4.core.util.Index.offsetToIndex(offset, dimsizes));
+        DapVariable d4var = (DapVariable) getTemplate();
+        long[] dimsizes = DapUtil.getDimSizes(d4var.getDimensions());
+        return getObject(DapUtil.offsetToIndex(offset, dimsizes));
     }
 
     public Object getStorage()
     {
         try {
-            List<Slice> slices = DapUtil.dimsetSlices(this.template.getDimensions());
+            List<Slice> slices = DapUtil.dimsetToSlices(this.template.getDimensions());
             Object result = this.data.read(slices);
             return result;
         } catch (DapException e) {

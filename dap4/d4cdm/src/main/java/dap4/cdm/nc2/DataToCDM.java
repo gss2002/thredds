@@ -103,8 +103,8 @@ public class DataToCDM
     createVar(DataCursor data)
             throws DapException
     {
-        DapVariable d4var = (DapVariable) data.getTemplate();
         Array array = null;
+        DapVariable d4var = (DapVariable)data.getTemplate();
         switch (d4var.getBaseType().getTypeSort()) {
         default: // atomic var
             array = createAtomicVar(data);
@@ -160,18 +160,18 @@ public class DataToCDM
         List<DapDimension> dimset = var.getDimensions();
         if(var.getRank() == 0) { // scalar
             for(int f = 0; f < nmembers; f++) {
-                DataCursor dc = data.getField(f);
+                DataCursor dc = (DataCursor)data.readField(f);
                 Array afield = createVar(dc);
                 arraystruct.add(0, f, afield);
             }
         } else {
-            Odometer odom = Odometer.factory(DapUtil.dimsetSlices(dimset));
+            Odometer odom = Odometer.factory(DapUtil.dimsetToSlices(dimset));
             while(odom.hasNext()) {
                 Index index = odom.next();
                 long offset = index.index();
-                DataCursor ithelement = data.getVariable(index);
+                DataCursor ithelement = (DataCursor)data.read(index);
                 for(int f = 0; f < nmembers; f++) {
-                    DataCursor dc = ithelement.getField(f);
+                    DataCursor dc = (DataCursor)ithelement.readField(f);
                     Array afield = createVar(dc);
                     arraystruct.add(offset, f, afield);
                 }
@@ -201,9 +201,9 @@ public class DataToCDM
         long dimsize = DapUtil.dimProduct(dimset);
         int nfields = template.getFields().size();
         for(int r = 0; r < data.getRecordCount(); r++) {
-            DataCursor rec = (DataCursor) data.getRecord(r);
+            DataCursor rec = data.readRecord(r);
             for(int f = 0; f < nfields; f++) {
-                DataCursor dc = rec.getField(f);
+                DataCursor dc = rec.readField(f);
                 Array afield = createVar(dc);
                 arrayseq.add(r, f, afield);
             }

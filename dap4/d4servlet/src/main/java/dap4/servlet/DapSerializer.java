@@ -106,7 +106,7 @@ public class DapSerializer
             writeSequence(data, dst);
             break;
         default:
-            assert false : "Unexpected variable type";
+            assert false : "Unexpected variable type: "+data.toString();
         }
         dst.endVariable();
     }
@@ -125,17 +125,12 @@ public class DapSerializer
         DapVariable template = (DapVariable) data.getTemplate();
         assert (this.ce.references(template));
         DapType basetype = template.getBaseType();
-        if(template.getRank() == 0) { // scalar
-            dst.writeAtomicArray(basetype, data.read(Index.SCALAR));
-        } else {// dimensioned
-            // get the slices from constraint
-            List<Slice> slices = ce.getConstrainedSlices(template);
-            if(slices == null)
-                throw new dap4.core.util.DapException("Unknown variable: " + template.getFQN());
-            long count = DapUtil.sliceProduct(slices);
-            Object vector = data.read(slices);
-            dst.writeAtomicArray(basetype, vector);
-        }
+        // get the slices from constraint
+        List<Slice> slices = ce.getConstrainedSlices(template);
+        if(slices == null)
+            throw new dap4.core.util.DapException("Unknown variable: " + template.getFQN());
+        Object values = data.read(slices);
+        dst.writeAtomicArray(basetype, values);
     }
 
     /**
@@ -157,8 +152,8 @@ public class DapSerializer
         Odometer odom = Odometer.factory(slices);
         while(odom.hasNext()) {
             Index index = odom.next();
-            DataCursor instance = (DataCursor) data.getVariable(index);
-            writeStructure1(instance, dst);
+            DataCursor[] instance = (DataCursor[]) data.read(index);
+            writeStructure1(instance[(int)index.index()], dst);
         }
     }
 
@@ -183,7 +178,7 @@ public class DapSerializer
         for(int i = 0; i < fields.size(); i++) {
             DapVariable field = fields.get(i);
             if(!this.ce.references(field)) continue; // not in the view
-            DataCursor df = instance.getField(i);
+            DataCursor df = (DataCursor) instance.readField(i);
             writeVariable(df, dst);
         }
     }
@@ -207,8 +202,8 @@ public class DapSerializer
         Odometer odom = Odometer.factory(slices);
         while(odom.hasNext()) {
             Index index = odom.next();
-            DataCursor instance = (DataCursor) data.getVariable(index);
-            writeSequence1(instance, dst);
+            DataCursor[] instance = (DataCursor[]) data.read(index);
+            writeSequence1(instance[(int)index.index()], dst);
         }
     }
 
@@ -232,7 +227,7 @@ public class DapSerializer
         long nrecs = instance.getRecordCount();
         dst.writeCount(nrecs);
         for(long i = 0; i < nrecs; i++) {
-            DataCursor record = instance.getRecord(i);
+            DataCursor record = instance.readRecord(i);
             writeRecord(record, dst);
         }
     }
@@ -255,7 +250,7 @@ public class DapSerializer
         for(int i = 0; i < fields.size(); i++) {
             DapVariable field = fields.get(i);
             if(!this.ce.references(field)) continue; // not in the view
-            DataCursor df = record.getField(i);
+            DataCursor df = (DataCursor) record.readField(i);
             writeVariable(df, dst);
         }
     }

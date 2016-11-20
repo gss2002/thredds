@@ -33,15 +33,15 @@
     <Opaque name="vo"/>
     <Enum name="primary_cloud" enum="/cloud_class_t">
         <Attribute name="_FillValue" type="String">
-            <Value value="Missing"/>
-        </Attribute>
-    </Enum>
-    <Enum name="secondary_cloud" enum="/cloud_class_t">
-        <Attribute name="_FillValue" type="String">
-            <Value value="Missing"/>
-        </Attribute>
-    </Enum>
-</Dataset>
+                <Value value="Missing"/>
+            </Attribute>
+        </Enum>
+        <Enum name="secondary_cloud" enum="/cloud_class_t">
+            <Attribute name="_FillValue" type="String">
+                    <Value value="Missing"/>
+                </Attribute>
+            </Enum>
+        </Dataset>
 /v8 = -128
 /vu8 = 255
 /v16 = -32768

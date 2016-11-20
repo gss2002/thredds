@@ -122,9 +122,10 @@ public class DSPPrinter
         List<DapVariable> topvars = dmr.getTopVariables();
         for(int i = 0; i < topvars.size(); i++) {
             DapVariable top = topvars.get(i);
+            List<Slice> slices = this.ce.getConstrainedSlices(top);
             if(this.ce.references(top)) {
                 DataCursor data = dsp.getVariableData(top);
-                printVariable(data);
+                printVariable(data,slices);
             }
         }
         printer.eol();
@@ -134,7 +135,7 @@ public class DSPPrinter
     //////////////////////////////////////////////////
 
     /**
-     * Print an arbitrary DataVariable  using constraint.
+     * Print an arbitrary DataVariable using a constraint.
      * <p>
      * Handling newlines is a bit tricky
      * so the rule is that the
@@ -147,12 +148,12 @@ public class DSPPrinter
      */
 
     protected void
-    printVariable(DataCursor data)
+    printVariable(DataCursor data, List<Slice> slices)
             throws DapException
     {
         DapVariable dapv = (DapVariable) data.getTemplate();
-        List<Slice> slices = this.ce.getConstrainedSlices(dapv);
-        if(dapv.getRank() == 0) {//scalar
+        if(data.isScalar()) {
+            assert slices == Slice.SCALARSLICES;
             printScalar(data);
         } else {// not scalar
             printArray(data, slices);
@@ -169,6 +170,11 @@ public class DSPPrinter
         case ATOMIC:
             printAtomicInstance(data, Index.SCALAR);
             break;
+        case STRUCTARRAY:
+        case SEQARRAY:  // remember that scalars are treated as 1-element arrays
+            DataCursor[] scalar = (DataCursor[]) data.read(Index.SCALAR);
+            assert scalar.length == 1;
+            data = scalar[0]; // fall thru
         case STRUCTURE:
         case SEQUENCE:
         case RECORD:
@@ -207,14 +213,14 @@ public class DSPPrinter
         case STRUCTARRAY:
         case SEQARRAY:
             DapStructure ds = (DapStructure) ((DapVariable) data.getTemplate()).getBaseType();
+            DataCursor[] instances = (DataCursor[]) data.read(slices);
             while(odom.hasNext()) {
                 Index pos = odom.next();
                 String s = indicesToString(pos);
                 printer.marginPrint(ds.getFQN() + s + " = {");
                 printer.eol();
                 printer.indent();
-                DataCursor instance = (DataCursor) data.getVariable(pos);
-                printCompoundInstance(instance);
+                printCompoundInstance(instances[(int)pos.index()]);
                 printer.outdent();
                 printer.marginPrint("}");
                 printer.eol();
@@ -266,23 +272,25 @@ public class DSPPrinter
     printCompoundInstance(DataCursor datav)
             throws DapException
     {
+        //Index index = datav.getIndex();
+        DapStructure dstruct = (DapStructure) ((DapVariable) datav.getTemplate()).getBaseType();
         switch (datav.getScheme()) {
         case STRUCTURE:
         case RECORD:
-            DapStructure dstruct = (DapStructure) ((DapVariable) datav.getTemplate()).getBaseType();
             List<DapVariable> dfields = dstruct.getFields();
             for(int f = 0; f < dfields.size(); f++) {
-                DataCursor df = datav.getField(f);
-                printVariable(df);
+                DapVariable field = dfields.get(f);
+                List<Slice> fieldslices = this.ce.getConstrainedSlices(field);
+                DataCursor fdata = datav.readField(f);
+                printVariable(fdata,fieldslices);
             }
             break;
 
         case SEQUENCE:
-            DapSequence dseq = (DapSequence) ((DapVariable) datav.getTemplate()).getBaseType();
-            dfields = dseq.getFields();
+            DapSequence dseq = (DapSequence)dstruct;
             long count = datav.getRecordCount();
             for(long r = 0; r < count; r++) {
-                DataCursor dr = datav.getRecord(r);
+                DataCursor dr = datav.readRecord(r);
                 printer.marginPrint("[");
                 printer.eol();
                 printer.indent();

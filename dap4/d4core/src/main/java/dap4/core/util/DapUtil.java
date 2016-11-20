@@ -112,6 +112,16 @@ abstract public class DapUtil // Should only contain static methods
         return path;
     }
 
+    static public Integer
+    stringToInteger(String s)
+    {
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     static public boolean hasSequence(DapNode node)
     {
         switch (node.getSort()) {
@@ -419,18 +429,6 @@ abstract public class DapUtil // Should only contain static methods
         return u;
     }
 */
-    static public List<Slice>
-    dimsetSlices(List<DapDimension> dimset)
-            throws dap4.core.util.DapException
-    {
-        List<Slice> slices = new ArrayList<Slice>(dimset.size());
-        for(int i = 0; i < dimset.size(); i++) {
-            DapDimension dim = dimset.get(i);
-            Slice s = new Slice(dim);
-            slices.add(s);
-        }
-        return slices;
-    }
 
     /**
      * Test a List<Slice> against set of DapDimensions
@@ -453,7 +451,6 @@ abstract public class DapUtil // Should only contain static methods
         }
         return true;
     }
-
 
     static public long
     sliceProduct(List<Slice> slices) // another crossproduct
@@ -695,7 +692,25 @@ abstract public class DapUtil // Should only contain static methods
     {
         List<DapDimension> dims = template.getDimensions();
         long[] dimsizes = DapUtil.getDimSizes(dims);
-        return indexToSlices(Index.offsetToIndex(offset, dimsizes), template);
+        return indexToSlices(offsetToIndex(offset, dimsizes), template);
+    }
+
+    /**
+     * Given an offset (single index) and a set of dimensions
+     * compute the set of dimension indices that correspond
+     * to the offset.
+     */
+
+    static public Index
+    offsetToIndex(long offset, long[] dimsizes)
+    {
+        // offset = d3*(d2*(d1*(x1))+x2)+x3
+        long[] indices = new long[dimsizes.length];
+        for(int i = dimsizes.length - 1; i >= 0; i--) {
+            indices[i] = offset % dimsizes[i];
+            offset = (offset - indices[i]) / dimsizes[i];
+        }
+        return new Index(indices, dimsizes);
     }
 
     /**
@@ -708,6 +723,9 @@ abstract public class DapUtil // Should only contain static methods
     indexToSlices(Index indices)
             throws DapException
     {
+        // short circuit the scalar case
+        if(indices.getRank() == 0)
+            return Slice.SCALARSLICES;
         // offset = d3*(d2*(d1*(x1))+x2)+x3
         List<Slice> slices = new ArrayList<>(indices.rank);
         for(int i = 0; i < indices.rank; i++) {
@@ -733,14 +751,67 @@ abstract public class DapUtil // Should only contain static methods
         return true;
     }
 
-    static public Integer
-    stringToInteger(String s)
+    /**
+     * Test if a set of slices represent a single position
+     *
+     * @param slices
+     * @return
+     */
+    static public boolean
+    isSinglePoint(List<Slice> slices)
     {
-        try {
-            return Integer.parseInt(s);
-        } catch (NumberFormatException e) {
-            return null;
+        for(Slice sl : slices) {
+            if(sl.getCount() != 1) return false;
         }
+        return true;
+    }
+
+    /**
+     * If a set of slices refers to a single position,
+     * then return the corresponding Index. Otherwise,
+     * throw Exception.
+     *
+     * @param slices
+     * @return Index corresponding to slices
+     * @throws DapException
+     */
+    static public Index
+    slicesToIndex(List<Slice> slices)
+            throws DapException
+    {
+        long[] positions = new long[slices.size()];
+        long[] dimsizes = new long[slices.size()];
+        for(int i = 0; i < positions.length; i++) {
+            Slice s = slices.get(i);
+            if(s.getCount() != 1)
+                throw new DapException("Attempt to convert non-singleton sliceset to index");
+            positions[i] = s.getFirst();
+            dimsizes[i] = s.getMax();
+        }
+        return new Index(positions, dimsizes);
+    }
+
+    static public List<Slice>
+    dimsetToSlices(List<DapDimension> dimset)
+            throws dap4.core.util.DapException
+    {
+        if(dimset == null || dimset.size() == 0)
+            return Slice.SCALARSLICES;
+        List<Slice> slices = new ArrayList<Slice>(dimset.size());
+        for(int i = 0; i < dimset.size(); i++) {
+            DapDimension dim = dimset.get(i);
+            Slice s = new Slice(dim);
+            slices.add(s);
+        }
+        return slices;
+    }
+
+    static public boolean
+    isScalarSlices(List<Slice> slices)
+    {
+        if(slices == null || slices.size() > 1) return false;
+        Slice s = slices.get(0);
+        return (s.getFirst() == 0 && s.getStop() == 1);
     }
 
 }

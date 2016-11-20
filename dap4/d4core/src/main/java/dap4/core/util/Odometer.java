@@ -48,14 +48,21 @@ public class Odometer implements Iterator<Index>
     factory(List<Slice> slices, List<DapDimension> dimset)
             throws DapException
     {
+        // check for scalar case
+        if(dimset != null && dimset.size() == 0) {
+            if(!DapUtil.isScalarSlices(slices))
+                throw new DapException("Cannot build scalar odometer with non-scalar slices");
+            return factoryScalar();
+        }
         boolean multi = false;
-        if(slices != null)
+        if(slices != null) {
             for(int i = 0; i < slices.size(); i++) {
                 if(slices.get(i).getSort() == Slice.Sort.Multi) {
                     multi = true;
                     break;
                 }
             }
+        }
         if(slices == null || slices.size() == 0)
             return factoryScalar();
         else if(multi)

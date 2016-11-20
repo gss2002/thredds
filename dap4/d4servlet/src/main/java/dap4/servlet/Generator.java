@@ -224,7 +224,7 @@ public class Generator extends DapSerializer
             }
             try {
                 assert (writer != null);
-                writer.writeAtomicArray(basetype, value);
+                writer.writeAtomicArray(basetype,value);
             } catch (IOException ioe) {
                 throw new DapException(ioe);
             }

@@ -7,7 +7,7 @@ public class DMRFactory
 {
     /////////////////////////////////////////////////
 
-    static public boolean DEBUG = true;
+    static public boolean DEBUG = false;
 
     //////////////////////////////////////////////////
     // Constructor

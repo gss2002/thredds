@@ -22,10 +22,10 @@
     <Enum name="primary_cloud" enum="/cloud_class_t">
         <Dim size="2"/>
         <Attribute name="_FillValue" type="String">
-            <Value value="Missing"/>
-        </Attribute>
-    </Enum>
-</Dataset>
+                <Value value="Missing"/>
+            </Attribute>
+        </Enum>
+    </Dataset>
 /primary_cloud[0] = Stratus
 /primary_cloud[1] = Cumulonimbus
 

@@ -45,17 +45,16 @@ public class Slice
         Single, Multi;
     }
 
-    static public Slice ZeroSlice;
     static public List<Slice> SCALARSLICES;
 
     static {
         try {
-            ZeroSlice = new Slice(0, 0, 1, 0).finish();
+            Slice scalarslice = new Slice(0, 1, 1, 1).finish();
+            SCALARSLICES = new ArrayList<Slice>();
+            SCALARSLICES.add(scalarslice);
         } catch (DapException de) {
-            ZeroSlice = null;
+            SCALARSLICES = null;
         }
-        SCALARSLICES = new ArrayList<Slice>();
-        SCALARSLICES.add(ZeroSlice);
     }
 
     //////////////////////////////////////////////////
@@ -395,6 +394,8 @@ public class Slice
             throw new DapException("i must be < stop");
         return target.getFirst() + i * target.getStride();
     }
+
+
 
 
 }

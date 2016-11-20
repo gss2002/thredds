@@ -51,10 +51,10 @@
     <Enum name="primary_cloud" enum="/cloud_class_t">
         <Dim name="/d5"/>
         <Attribute name="_FillValue" type="String">
-            <Value value="Missing"/>
-        </Attribute>
-    </Enum>
-</Dataset>
+                <Value value="Missing"/>
+            </Attribute>
+        </Enum>
+    </Dataset>
 /vu8[0,0] = 255
 /vu8[0,1] = 1
 /vu8[0,2] = 2

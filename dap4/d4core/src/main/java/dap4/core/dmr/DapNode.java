@@ -283,7 +283,7 @@ abstract public class DapNode
         case ATTRIBUTE:
         case ATTRIBUTESET:
         case OTHERXML:
-            parent = ((DapAttribute) this).getContainer();
+            parent = ((DapAttribute) this).getParent();
             if(parent instanceof DapVariable)
                 parent = parent.getContainer();
             break;
@@ -314,6 +314,7 @@ abstract public class DapNode
                         || parent.getSort().isa(DapSort.GROUP)
                         || parent.getSort() == DapSort.VARIABLE
                         || parent.getSort() == DapSort.STRUCTURE
+                        || parent.getSort() == DapSort.SEQUENCE
                         || this.getSort() == DapSort.ATTRIBUTE
                         || this.getSort() == DapSort.ATTRIBUTESET
         );

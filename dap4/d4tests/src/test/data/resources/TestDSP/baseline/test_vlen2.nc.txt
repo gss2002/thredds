@@ -1,0 +1,59 @@
+<Dataset
+         name="test_vlen2.nc"
+         dapVersion="4.0"
+         dmrVersion="1.0"
+         xmlns="http://xml.opendap.org/ns/DAP/4.0#"
+         xmlns:dap="http://xml.opendap.org/ns/DAP/4.0#">
+    <Dimension name="d3" size="3"/>
+    <Dimension name="d2" size="2"/>
+    <Sequence name="x">
+        <Int32 name="vlen_t"/>
+        <Dim name="/d3"/>
+        <Dim name="/d2"/>
+    </Sequence>
+</Dataset>
+/vlen_t[0,0] = {
+    [
+        /vlen_t.vlen_t = 1
+    ]    [
+        /vlen_t.vlen_t = 3
+    ]    [
+        /vlen_t.vlen_t = 5
+    ]    [
+        /vlen_t.vlen_t = 7
+    ]}
+/vlen_t[0,1] = {
+    [
+        /vlen_t.vlen_t = 100
+    ]    [
+        /vlen_t.vlen_t = 200
+    ]}
+/vlen_t[1,0] = {
+    [
+        /vlen_t.vlen_t = -1
+    ]    [
+        /vlen_t.vlen_t = -2
+    ]}
+/vlen_t[1,1] = {
+    [
+        /vlen_t.vlen_t = 1
+    ]    [
+        /vlen_t.vlen_t = 3
+    ]    [
+        /vlen_t.vlen_t = 5
+    ]    [
+        /vlen_t.vlen_t = 7
+    ]}
+/vlen_t[2,0] = {
+    [
+        /vlen_t.vlen_t = 100
+    ]    [
+        /vlen_t.vlen_t = 200
+    ]}
+/vlen_t[2,1] = {
+    [
+        /vlen_t.vlen_t = -1
+    ]    [
+        /vlen_t.vlen_t = -2
+    ]}
+

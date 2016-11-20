@@ -1,0 +1,64 @@
+<Dataset
+         name="test_struct_array.nc"
+         dapVersion="4.0"
+         dmrVersion="1.0"
+         xmlns="http://xml.opendap.org/ns/DAP/4.0#"
+         xmlns:dap="http://xml.opendap.org/ns/DAP/4.0#">
+    <Dimension name="dx" size="4"/>
+    <Dimension name="dy" size="3"/>
+    <Structure name="s">
+        <Int32 name="x"/>
+        <Int32 name="y"/>
+        <Dim name="/dx"/>
+        <Dim name="/dy"/>
+    </Structure>
+</Dataset>
+/c_t[0,0] = {
+    /c_t.x = 1
+    /c_t.y = -1
+}
+/c_t[0,1] = {
+    /c_t.x = 17
+    /c_t.y = 37
+}
+/c_t[0,2] = {
+    /c_t.x = -32767
+    /c_t.y = 32767
+}
+/c_t[1,0] = {
+    /c_t.x = -1
+    /c_t.y = 3
+}
+/c_t[1,1] = {
+    /c_t.x = -2
+    /c_t.y = 2
+}
+/c_t[1,2] = {
+    /c_t.x = -3
+    /c_t.y = 1
+}
+/c_t[2,0] = {
+    /c_t.x = -4
+    /c_t.y = 12
+}
+/c_t[2,1] = {
+    /c_t.x = -8
+    /c_t.y = 8
+}
+/c_t[2,2] = {
+    /c_t.x = -12
+    /c_t.y = 4
+}
+/c_t[3,0] = {
+    /c_t.x = -5
+    /c_t.y = 15
+}
+/c_t[3,1] = {
+    /c_t.x = -10
+    /c_t.y = 10
+}
+/c_t[3,2] = {
+    /c_t.x = -15
+    /c_t.y = 5
+}
+

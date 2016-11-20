@@ -21,10 +21,10 @@
     <Group name="h">
         <Enum name="primary_cloud" enum="/cloud_class_t">
             <Attribute name="_FillValue" type="String">
-                <Value value="Missing"/>
-            </Attribute>
-        </Enum>
-    </Group>
-</Dataset>
+                    <Value value="Missing"/>
+                </Attribute>
+            </Enum>
+        </Group>
+    </Dataset>
 /h/primary_cloud = Stratus
 

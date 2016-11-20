@@ -27,8 +27,11 @@ import dap4.dap4lib.XURI;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
 
-import static dap4.dap4lib.netcdf.DapNetcdf.NC_NOWRITE;
+import static dap4.dap4lib.netcdf.DapNetcdf.*;
+import static dap4.dap4lib.netcdf.Nc4Notes.*;
 
 /**
  * DSP for reading netcdf files through jni interface to netcdf4 library
@@ -65,7 +68,6 @@ public class Nc4DSP extends AbstractDSP
 
     //////////////////////////////////////////////////
     // com.sun.jna.Memory control
-
 
     /**
      * Provide a wrapper for pointers that tracks the size.
@@ -105,13 +107,9 @@ public class Nc4DSP extends AbstractDSP
         public String
         toString()
         {
-            return String.format("0x%016x/%d",Pointer.nativeValue(this.p),this.size);
+            return String.format("0x%016x/%d", Pointer.nativeValue(this.p), this.size);
         }
     }
-
-    //////////////////////////////////////////////////
-    // Static variables
-
 
     //////////////////////////////////////////////////
     // DSP Match API
@@ -129,6 +127,81 @@ public class Nc4DSP extends AbstractDSP
             if(path.endsWith(s)) return true;
         }
         return false;
+    }
+
+    //////////////////////////////////////////////////
+    // Notes Management
+
+    protected Map<NoteSort, Map<Long, Notes>> allnotes = null;
+
+    /*package*/ void
+    note(Notes note)
+    {
+        if(allnotes == null) allnotesInit();
+        int gid = note.gid;
+        int id = note.id;
+        NoteSort sort = note.getSort();
+        Map<Long, Notes> sortnotes = allnotes.get(sort);
+        assert sortnotes != null;
+        switch (sort) {
+        case TYPE:
+        case GROUP:
+        case DIM:
+            sortnotes.put((long) id, note);
+            break;
+        case VAR:
+            long gv = (((long) gid) << 32) | id;
+            sortnotes.put(gv, note);
+            break;
+        }
+    }
+
+    /*package*/ VarNotes
+    findVar(int gid, int varid)
+    {
+        return (VarNotes)find((((long) gid) << 32) | varid, NoteSort.VAR);
+    }
+
+    /*package*/ Notes
+    find(long id, NoteSort sort)
+    {
+        if(allnotes == null) allnotesInit();
+        Map<Long, Notes> sortnotes = allnotes.get(sort);
+        assert sortnotes != null;
+        return sortnotes.get((long) id);
+    }
+
+    protected void allnotesInit()
+    {
+        allnotes = new HashMap<>();
+        for(NoteSort s : NoteSort.values()) {
+            allnotes.put(s, new HashMap<Long, Notes>());
+        }
+        this.note(new Nc4Notes.TypeNotes(0, NC_BYTE, this).set(DapType.INT8));
+        this.note(new TypeNotes(0, NC_CHAR, this).set(DapType.CHAR));
+        this.note(new TypeNotes(0, NC_SHORT, this).set(DapType.INT16));
+        this.note(new TypeNotes(0, NC_INT, this).set(DapType.INT32));
+        this.note(new TypeNotes(0, NC_FLOAT, this).set(DapType.FLOAT32));
+        this.note(new TypeNotes(0, NC_DOUBLE, this).set(DapType.FLOAT64));
+        this.note(new TypeNotes(0, NC_UBYTE, this).set(DapType.UINT8));
+        this.note(new TypeNotes(0, NC_USHORT, this).set(DapType.UINT16));
+        this.note(new TypeNotes(0, NC_UINT, this).set(DapType.UINT32));
+        this.note(new TypeNotes(0, NC_INT64, this).set(DapType.INT64));
+        this.note(new TypeNotes(0, NC_UINT64, this).set(DapType.UINT64));
+        this.note(new TypeNotes(0, NC_STRING, this).set(DapType.STRING));
+        for(int i=NC_BYTE;i<=NC_MAX_ATOMIC_TYPE;i++) {
+            Nc4Notes.TypeNotes tn = (Nc4Notes.TypeNotes)find(i,NoteSort.TYPE);
+            assert tn != null;
+            int ret = 0;
+            byte[] namep = new byte[NC_MAX_NAME + 1];
+            SizeTByReference sizep = new SizeTByReference();
+            try {
+                Nc4Cursor.errcheck(getJNI(), ret = nc4.nc_inq_type(tn.gid, tn.id, namep, sizep));
+            } catch (DapException e) {
+                assert false; // should never happen
+            }
+            tn.setSize(sizep.intValue());
+        }
     }
 
     //////////////////////////////////////////////////

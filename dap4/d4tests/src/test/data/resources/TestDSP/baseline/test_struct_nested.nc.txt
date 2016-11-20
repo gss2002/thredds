@@ -1,0 +1,28 @@
+<Dataset
+         name="test_struct_nested.nc"
+         dapVersion="4.0"
+         dmrVersion="1.0"
+         xmlns="http://xml.opendap.org/ns/DAP/4.0#"
+         xmlns:dap="http://xml.opendap.org/ns/DAP/4.0#">
+    <Structure name="x">
+        <Structure name="field1">
+            <Int32 name="x"/>
+            <Int32 name="y"/>
+        </Structure>
+        <Structure name="field2">
+            <Int32 name="x"/>
+            <Int32 name="y"/>
+        </Structure>
+    </Structure>
+</Dataset>
+/x = {
+    /s2_t.field1 =     {
+        /s1_t.x = 1
+        /s1_t.y = -2
+    }
+    /s2_t.field2 =     {
+        /s1_t.x = 255
+        /s1_t.y = 90
+    }
+}
+

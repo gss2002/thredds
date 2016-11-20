@@ -79,6 +79,11 @@ public enum DapSort
         return this == VARIABLE;
     }
 
+    public boolean isGroup()
+       {
+           return this == DATASET || this == GROUP;
+       }
+
     public boolean isType()
     {
         return this == ATOMICTYPE || this == SEQUENCE || this == STRUCTURE || this == ENUMERATION;

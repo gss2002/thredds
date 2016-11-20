@@ -20,9 +20,9 @@
     </Enumeration>
     <Enum name="primary_cloud" enum="/cloud_class_t">
         <Attribute name="_FillValue" type="String">
-            <Value value="Missing"/>
-        </Attribute>
-    </Enum>
-</Dataset>
+                <Value value="Missing"/>
+            </Attribute>
+        </Enum>
+    </Dataset>
 /primary_cloud = Stratus
 

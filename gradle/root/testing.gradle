@@ -25,7 +25,8 @@ ext {
         logger.warn "Skipping all NotTravis tests: detected that we're running in the Travis environment."
     }
     
-    isD4TS = System.properties['d4ts'] as boolean
+// temporary change    isD4TS = System.properties['d4ts'] as boolean
+    isD4TS = !isTravis && !isJenkins as boolean
     if (!isD4TS) {
         logger.warn "Skipping all NeedsD4TS tests: apparenty no d4ts server is available."
     }

@@ -20,10 +20,7 @@ import java.util.List;
  * state to extract data depending on its
  * sort. The cursor may (or may not) contain
  * internal subclasses to track various kinds of
- * state.  Note: scalar compound objects use
- * Scheme STRUCT/SEQ Array, but return true for
- * the isScalar() method. This is so there is a
- * consistent process of e.g. STRUCTARRAY->STRUCTURE.
+ * state.
  */
 
 public interface DataCursor
@@ -72,10 +69,8 @@ public interface DataCursor
     // Returns:
     // atomic - array of data values
     // structure/sequence - DataCursor[]
-    // As noted above, even if the result is a scalar,
-    // an array will be returned.
-    // Field access is an exception. You must specify both the field
-    // index (or name) and the slicing information.
+    // Even if the result is a scalar,
+    // a 1-element array will be returned.
 
     public Object read(List<Slice> slices) throws DapException;
 
@@ -87,7 +82,9 @@ public interface DataCursor
 
     public long getRecordCount() throws DapException;
 
-    public DataCursor getRecord(long i) throws DapException;
+    public DataCursor readRecord(long i) throws DapException;
+
+    public long getRecordIndex() throws DapException; // assert scheme == RECORD
 
     //////////////////////////////////////////////////
     // field management
@@ -95,6 +92,5 @@ public interface DataCursor
 
     public int fieldIndex(String name) throws DapException; // Convert a name to an index
 
-    public Object readField(int fieldindex, List<Slice> slices) throws DapException;
-    public Object readField(int fieldindex, Index index) throws DapException;
+    public DataCursor readField(int fieldindex) throws DapException;
 }

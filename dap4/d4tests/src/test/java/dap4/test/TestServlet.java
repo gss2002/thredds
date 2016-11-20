@@ -164,10 +164,11 @@ public class TestServlet extends DapTestCommon
     protected void
     chooseTestcases()
     {
-        if(false) {
-            chosentests = locate("test_struct_array.syn");
+        if(true) {
+            chosentests = locate("test_sequence_2.syn");
             prop_visual = true;
             prop_generate = false;
+            prop_baseline = false;
         } else {
             for(TestCase tc : alltestcases) {
                 chosentests.add(tc);
@@ -198,6 +199,7 @@ public class TestServlet extends DapTestCommon
     {
         System.err.println("Testcase: " + testcase.testinputpath);
         System.err.println("Baseline: " + testcase.baselinepath);
+        System.err.flush();
         if(PARSEDEBUG) Dap4ParserImpl.setGlobalDebugLevel(1);
         for(String extension : testcase.extensions) {
             RequestMode ext = RequestMode.modeFor(extension);

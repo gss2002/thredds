@@ -37,7 +37,7 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
     {
         this();
         setShortName(name);
-        this.isshared  = true;
+        this.isshared  = (name != null);
     }
 
     public DapDimension(String name, long size)

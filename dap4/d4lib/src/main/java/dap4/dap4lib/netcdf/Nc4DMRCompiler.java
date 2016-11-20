@@ -4,7 +4,6 @@
 
 package dap4.dap4lib.netcdf;
 
-import com.sun.jna.Memory;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
@@ -120,7 +119,7 @@ public class Nc4DMRCompiler
         int ret;
         byte[] namep = new byte[NC_MAX_NAME + 1];
         errcheck(ret = nc4.nc_inq_grpname(ncid, namep));
-        GroupNotes gi = new GroupNotes(ncid, ncid);
+        GroupNotes gi = new GroupNotes(ncid, ncid, this.dsp);
         String[] pieces = DapUtil.canonicalpath(this.path).split("[/]");
         DapDataset g = factory.newDataset(pieces[pieces.length - 1]);
         g.annotate(gi);
@@ -165,11 +164,11 @@ public class Nc4DMRCompiler
         int ret;
         byte[] namep = new byte[NC_MAX_NAME + 1];
         errcheck(ret = nc4.nc_inq_grpname(gid, namep));
-        GroupNotes gi = new GroupNotes(parent, gid);
+        GroupNotes gi = new GroupNotes(parent, gid, this.dsp);
         DapGroup g = factory.newGroup(makeString(namep));
         g.annotate(gi);
         gi.set(g);
-        GroupNotes gp = GroupNotes.find(parent);
+        GroupNotes gp = (GroupNotes) this.dsp.find(parent, NoteSort.GROUP);
         gp.get().addDecl(g);
         fillgroup(gid);
     }
@@ -185,11 +184,11 @@ public class Nc4DMRCompiler
         String name = makeString(namep);
         int len = lenp.intValue();
         boolean isunlimited = contains(udims, did);
-        DimNotes di = new DimNotes(gid, did);
+        DimNotes di = new DimNotes(gid, did, this.dsp);
         DapDimension dim = factory.newDimension(name, lenp.longValue());
         dim.annotate(di);
         di.set(dim);
-        GroupNotes gp = GroupNotes.find(gid);
+        GroupNotes gp = (GroupNotes) this.dsp.find(gid, NoteSort.GROUP);
         gp.get().addDecl(dim);
         if(isunlimited) {
             DapAttribute ultag = factory.newAttribute(UCARTAGUNLIM, DapType.INT8);
@@ -213,19 +212,21 @@ public class Nc4DMRCompiler
         errcheck(ret = nc4.nc_inq_user_type(gid, tid, namep, lenp, basetypep, nfieldsp, classp));
         String name = makeString(namep);
         int basetype = basetypep.getValue();
-        TypeNotes ti = new TypeNotes(gid, tid);
+        long len = lenp.longValue();
+        long nfields = nfieldsp.longValue();
+        TypeNotes ti = new TypeNotes(gid, tid, this.dsp);
         switch (classp.getValue()) {
         case NC_OPAQUE:
-            buildopaquetype(ti, name, lenp.intValue());
+            buildopaquetype(ti, name, len);
             break;
         case NC_ENUM:
             buildenumtype(ti, name, basetype);
             break;
         case NC_COMPOUND:
-            buildcompoundtype(ti, name, nfieldsp.intValue());
+            buildcompoundtype(ti, name, nfields, len);
             break;
         case NC_VLEN:
-            buildvlentype(ti, name, basetype);
+            buildvlentype(ti, name, basetype, len);
             break;
         default:
             throw new DapException("Unknown class: " + classp.getValue());
@@ -233,7 +234,7 @@ public class Nc4DMRCompiler
     }
 
     protected void
-    buildopaquetype(TypeNotes ti, String name, int len)
+    buildopaquetype(TypeNotes ti, String name, long len)
             throws DapException
     {
         int ret;
@@ -252,7 +253,7 @@ public class Nc4DMRCompiler
         byte[] namep = new byte[NC_MAX_NAME + 1];
         IntByReference basetypep = new IntByReference();
         IntByReference valuep = new IntByReference();
-        TypeNotes base = TypeNotes.find(basetype);
+        TypeNotes base = (TypeNotes) this.dsp.find(basetype, NoteSort.TYPE);
         if(!isintegertype(base))
             throw new DapException("Enum base type must be integer type");
         errcheck(ret = nc4.nc_inq_enum(ti.gid, ti.id, namep, basetypep, sizep, nmembersp));
@@ -274,7 +275,7 @@ public class Nc4DMRCompiler
     }
 
     protected void
-    buildcompoundtype(TypeNotes ti, String name, long nfields)
+    buildcompoundtype(TypeNotes ti, String name, long nfields, long len)
             throws DapException
     {
         DapStructure ds = factory.newStructure(name);
@@ -290,7 +291,8 @@ public class Nc4DMRCompiler
         SizeTByReference nfieldsp = new SizeTByReference();
         byte[] namep = new byte[NC_MAX_NAME + 1];
         errcheck(ret = nc4.nc_inq_compound(ti.gid, ti.id, namep, sizep, nfieldsp));
-        ti.setCompoundSize(sizep.intValue());
+        ti.setCompoundSize(sizep.longValue());
+        assert len == sizep.longValue();
     }
 
     protected void
@@ -307,21 +309,23 @@ public class Nc4DMRCompiler
         errcheck(ret = nc4.nc_inq_compound_field(ti.gid, ti.id, fid, namep,
                 offsetp, fieldtypep, ndimsp, NC_NULL));
         int fieldtype = fieldtypep.getValue();
-        TypeNotes baset = TypeNotes.find(fieldtype);
+        TypeNotes baset = (TypeNotes) this.dsp.find(fieldtype, NoteSort.TYPE);
         if(baset == null)
             throw new DapException("Undefined field base type: " + fieldtype);
         int[] dimsizes = getFieldDimsizes(ti.gid, ti.id, fid, ndimsp.getValue());
-        DapVariable fieldvar = makeField(ti, fid, makeString(namep), baset, offsetp.intValue(), dimsizes);
+        VarNotes fieldnotes = makeField(ti, fid, makeString(namep), baset, offsetp.intValue(), dimsizes);
+        DapVariable fieldvar = fieldnotes.get();
         fieldvar.setParent(container);
+        assert baset.getSize() > 0;
     }
 
-    protected DapVariable
+    protected VarNotes
     makeField(TypeNotes container, int fieldid, String name, TypeNotes baset, int offset, int[] dimsizes)
             throws DapException
     {
         DapVariable field;
         DapStructure ds = (DapStructure) container.getType();
-        VarNotes notes = (VarNotes) new VarNotes(container.gid,container.id)
+        VarNotes notes = (VarNotes) new VarNotes(container.gid, container.id, this.dsp)
                 .setFieldID(fieldid)
                 .setOffset(offset)
                 .setBaseType(baset)
@@ -337,7 +341,7 @@ public class Nc4DMRCompiler
             }
         }
         ds.addField(field);
-        return field;
+        return notes;
     }
 
     protected DapVariable
@@ -351,12 +355,12 @@ public class Nc4DMRCompiler
         IntByReference nattsp = new IntByReference();
         errcheck(ret = nc4.nc_inq_var(gid, vid, namep, xtypep, ndimsp, NC_NULL, nattsp));
         String name = makeString(namep);
-        TypeNotes xtype = TypeNotes.find(xtypep.getValue());
+        TypeNotes xtype = (TypeNotes) this.dsp.find(xtypep.getValue(), NoteSort.TYPE);
         if(DEBUG) {
             System.err.printf("NC4: inqvar: name=%s gid=%d vid=%d xtype=%d ndims=%d natts=%d%n",
                     name, gid, vid, xtype.id, ndimsp.getValue(), nattsp.getValue());
         }
-        VarNotes vi = new VarNotes(gid, vid).setBaseType(xtype);
+        VarNotes vi = new VarNotes(gid, vid, this.dsp).setBaseType(xtype);
         if(xtype == null)
             throw new DapException("Unknown type id: " + xtype.id);
         DapVariable var;
@@ -382,7 +386,7 @@ public class Nc4DMRCompiler
         vi.group().addDecl(var);
         int[] dimids = getVardims(gid, vid, ndimsp.getValue());
         for(int i = 0; i < dimids.length; i++) {
-            DimNotes di = DimNotes.find(dimids[i]);
+            DimNotes di = (DimNotes) this.dsp.find(dimids[i], NoteSort.DIM);
             if(di == null)
                 throw new DapException("Undefined variable dimension id: " + dimids[i]);
             var.addDimension(di.get());
@@ -402,7 +406,7 @@ public class Nc4DMRCompiler
     }
 
     protected void
-    buildvlentype(TypeNotes ti, String vname, int basetype)
+    buildvlentype(TypeNotes ti, String vname, int basetypeid, long len)
             throws DapException
     {
         int ref;
@@ -413,15 +417,19 @@ public class Nc4DMRCompiler
         ti.set(ds);
         ti.group().addDecl(ds);
         ti.markVlen();
-        TypeNotes baset = TypeNotes.find(basetype);
-        if(baset == null)
-            throw new DapException("Undefined vlen basetype: " + basetype);
-        DapVariable field = makeField(ti, 0, vname, baset, 0, new int[0]);
+        TypeNotes fieldtype = (TypeNotes) this.dsp.find(basetypeid, NoteSort.TYPE);
+        if(fieldtype == null)
+            throw new DapException("Undefined vlen basetype: " + basetypeid);
+        VarNotes fieldnotes = makeField(ti, 0, vname, fieldtype, 0, new int[0]);
+        DapVariable field = fieldnotes.get();
         field.setParent(ds);
         // Annotate to indicate that this came from a vlen
         DapAttribute tag = factory.newAttribute(UCARTAGVLEN, DapType.INT8);
         tag.setValues(new Object[]{(Byte) (byte) 1});
         ds.addAttribute(tag);
+        // Finally, extract the size of the structure, which is the same
+        // as the size of the singleton field
+        ti.setCompoundSize(fieldtype.getSize());
     }
 
     protected void
@@ -433,7 +441,7 @@ public class Nc4DMRCompiler
         IntByReference basetypep = new IntByReference();
         errcheck(ret = nc4.nc_inq_atttype(gid, vid, name, basetypep));
         int basetype = basetypep.getValue();
-        TypeNotes base = TypeNotes.find(basetype);
+        TypeNotes base = (TypeNotes) this.dsp.find(basetype, NoteSort.TYPE);
         if(!islegalattrtype(base))
             throw new DapException("Non-atomic attribute types not supported: " + name);
         SizeTByReference countp = new SizeTByReference();
@@ -443,10 +451,10 @@ public class Nc4DMRCompiler
         DapAttribute da = factory.newAttribute(name, (DapType) base.getType());
         da.setValues(values);
         if(isglobal) {
-            GroupNotes gi = GroupNotes.find(gid);
+            GroupNotes gi = (GroupNotes) this.dsp.find(gid, NoteSort.GROUP);
             gi.get().addAttribute(da);
         } else {
-            VarNotes vi = VarNotes.find(gid, vid);
+            VarNotes vi = this.dsp.findVar(gid, vid);
             vi.get().addAttribute(da);
         }
     }

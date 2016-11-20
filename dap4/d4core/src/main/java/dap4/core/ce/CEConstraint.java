@@ -293,7 +293,7 @@ public class CEConstraint implements Constraint
         if(dapv.getRank() > 0)
             throw new DapException("Non-scalar variable in filter: " + field);
         int fieldindex = seq.indexByName(field);
-        DataCursor da = (DataCursor) (record.readField(fieldindex,Index.SCALAR));
+        DataCursor da = (DataCursor) (record.readField(fieldindex));
         if(da == null)
             throw new DapException("No such field: " + field);
         return da;
@@ -480,6 +480,7 @@ public class CEConstraint implements Constraint
 
     public List<Slice>
     getConstrainedSlices(DapVariable var)
+            throws DapException
     {
         Segment seg = findSegment(var);
         if(seg == null)
