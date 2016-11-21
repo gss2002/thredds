@@ -230,7 +230,7 @@ abstract public class DapController extends HttpServlet
             return;
         }
 
-        String datasetpath = DapUtil.nullify(drq.getDataset());
+        String datasetpath = DapUtil.nullify(DapUtil.canonicalpath(drq.getDataset()));
         try {
             if(datasetpath == null) {
                 // This is the case where a request was made without a dataset;

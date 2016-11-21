@@ -382,7 +382,7 @@ abstract public class UnitTestCommon
         System.err.flush();
     }
 
-    static public String canonjoin(String prefix, String suffix)
+    static public String canonjoin2(String prefix, String suffix)
     {
         if(prefix == null) prefix = "";
         if(suffix == null) suffix = "";
@@ -391,6 +391,25 @@ abstract public class UnitTestCommon
             result.append("/");
         result.append(suffix.startsWith("/") ? suffix.substring(1) : suffix);
         return result.toString();
+    }
+
+    static public String canonjoin(String... pieces)
+    {
+        StringBuilder buf = new StringBuilder();
+        for(int i=0;i<pieces.length;i++) {
+            // invariant buf does not end with ('/')
+            String piece = pieces[i];
+            if(piece == null) continue;
+            piece = canonicalpath(piece);
+            if(i == 0)
+                buf.append(piece);
+            else {//i>=0
+                if(!piece.startsWith("/"))
+                    buf.append("/");
+                buf.append(piece);
+            }
+        }
+        return buf.toString();
     }
 
     /**

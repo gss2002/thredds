@@ -242,7 +242,7 @@ public class Nc4DSP extends AbstractDSP
     // DSP API
 
     @Override
-    public DSP
+    public Nc4DSP
     open(String filepath)
             throws DapException
     {

@@ -74,7 +74,7 @@ public class SynDSP extends D4DSP
     }
 
     @Override
-    public DSP
+    public SynDSP
     open(String filepath)
             throws DapException
     {

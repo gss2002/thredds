@@ -143,7 +143,7 @@ public class HttpDSP extends D4DSP
     }
 
     @Override
-    public DSP open(String url)
+    public HttpDSP open(String url)
             throws DapException
     {
         setLocation(url);

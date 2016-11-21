@@ -390,7 +390,8 @@ abstract public class DapTestCommon extends UnitTestCommon
             if(params.length % 2 == 1)
                 throw new Exception("Illegal query params");
             for(int i = 0; i < params.length; i += 2) {
-                rb.param(params[0], params[1]);
+                if(params[i] != null)
+                    rb.param(params[i], params[i+1]);
             }
         }
         String realdir = canonjoin(dap4testroot, respath);

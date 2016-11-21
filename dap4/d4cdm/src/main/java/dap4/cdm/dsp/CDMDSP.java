@@ -120,7 +120,7 @@ public class CDMDSP extends AbstractDSP
      * @throws dap4.core.util.DapException
      */
     @Override
-    public DSP
+    public CDMDSP
     open(String filepath)
             throws dap4.core.util.DapException
     {
@@ -140,7 +140,7 @@ public class CDMDSP extends AbstractDSP
      * @return
      * @throws dap4.core.util.DapException
      */
-    public DSP open(NetcdfDataset ncd)
+    public CDMDSP open(NetcdfDataset ncd)
             throws dap4.core.util.DapException
     {
         assert this.context != null;
@@ -674,8 +674,7 @@ public class CDMDSP extends AbstractDSP
         DapVariable var = (DapVariable) dmrfactory.newVariable(cdmvar.getShortName(), seq).annotate(cdmvar);
         recordNode(cdmvar, seq);
         getDMR().addDecl(seq);
-        // We need to build the sequence field from cdmvar
-        // But dimensionless and as fields of the sequence.
+
         Sequence seqvar = (Sequence) cdmvar;
         for(CDMNode node : seqvar.getVariables()) {
             Variable cv = (Variable) node;

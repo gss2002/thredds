@@ -31,18 +31,19 @@ public interface DSP
     public boolean dspMatch(String path, DapContext context);
 
     /**
-     * @param path It is assumed that the path is appropriate to the dsp
-     *             E.g. an absolute path or a url.
+     * @param path It is assumed that the path
+     *             is appropriate to the dsp
+     *             E.g. an absolute path or a url
      * @return DSP wrapping the path source
      * @throws dap4.core.util.DapException
      */
-    public DSP open(String path) throws dap4.core.util.DapException;
+    public DSP open(String path) throws DapException;
 
     public void close() throws IOException;
 
     public String getLocation();
 
-    public void setLocation(String location);
+    public DSP setLocation(String location);
 
     public Object getContext();
 
