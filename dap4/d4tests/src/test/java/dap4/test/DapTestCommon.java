@@ -334,6 +334,7 @@ abstract public class DapTestCommon extends UnitTestCommon
         System.err.println("---------------");
         System.err.print(captured);
         System.err.println("---------------");
+        System.err.flush();
     }
 
     protected void
@@ -378,7 +379,7 @@ abstract public class DapTestCommon extends UnitTestCommon
     }
 
     static protected MvcResult
-    perform(String url, String respath,
+    perform(String url,
             MockMvc mockMvc,
             String... params)
             throws Exception
@@ -386,16 +387,20 @@ abstract public class DapTestCommon extends UnitTestCommon
         MockHttpServletRequestBuilder rb = MockMvcRequestBuilders
                 .get(url)
                 .servletPath(url);
+        String respath = null;
         if(params.length > 0) {
             if(params.length % 2 == 1)
                 throw new Exception("Illegal query params");
             for(int i = 0; i < params.length; i += 2) {
-                if(params[i] != null)
-                    rb.param(params[i], params[i+1]);
+                if(params[i] != null) {
+                    rb.param(params[i], params[i + 1]);
+                    if(params[i].equals("RESOURCEDIR"))
+                        respath = params[i+1];
+                }
             }
         }
+        assert respath != null;
         String realdir = canonjoin(dap4testroot, respath);
-        rb.requestAttr("RESOURCEDIR", realdir);
         MvcResult result = mockMvc.perform(rb).andReturn();
         return result;
     }

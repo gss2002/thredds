@@ -14,11 +14,20 @@ import dap4.dap4lib.FileDSP;
 import dap4.dap4lib.netcdf.Nc4DSP;
 import dap4.servlet.*;
 
+import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
+
+import static dap4.d4ts.FrontPage.Root;
+
 
 public class D4TSServlet extends DapController
 {
@@ -30,7 +39,7 @@ public class D4TSServlet extends DapController
 
     static final boolean PARSEDEBUG = false;
 
-    static protected final String RESOURCEPATH = "WEB-INF/resources/testfiles";
+    static protected final String RESOURCEPATH = "WEB-INF/resources";
 
     //////////////////////////////////////////////////
     // Type Decls
@@ -60,6 +69,8 @@ public class D4TSServlet extends DapController
     //////////////////////////////////////////////////
     // Instance variables
 
+    protected List<Root> defaultroots = null;
+
     //////////////////////////////////////////////////
     // Constructor(s)
 
@@ -71,12 +82,22 @@ public class D4TSServlet extends DapController
     @Override
     public void initialize()
     {
+        super.setservletcontext(getServletContext());
+        super.initialize();
         DapLog.info("Initializing d4ts servlet");
-        ServletContext svccxt = getServletContext();
+        ServletContext svccxt = getservletcontext();
         // Construct the resource dir path
         String svcroot = svccxt.getRealPath("");
+        assert svcroot != null;
         String resourcedir = DapUtil.canonjoin(svcroot, RESOURCEPATH);
-        this.dapcxt.put("RESOURCEDIR",resourcedir);
+        this.dapcxt.put("RESOURCEDIR", resourcedir);
+        if(this.defaultroots == null) {
+            this.defaultroots = new ArrayList<>();
+            this.defaultroots.add(
+                    new Root(DapUtil.canonjoin(resourcedir, "testfiles"), "Test Files"));
+            this.defaultroots.add(
+                    new Root(DapUtil.canonjoin(resourcedir, "rawtestfiles"), "Raw TestFiles"));
+        }
     }
 
     //////////////////////////////////////////////////
@@ -95,9 +116,10 @@ public class D4TSServlet extends DapController
 
     @Override
     protected void
-    doFavicon(DapRequest drq, String icopath, DapContext cxt)
+    doFavicon(String icopath, DapContext cxt)
             throws IOException
     {
+        DapRequest drq = this.daprequest;
         String favfile = getResourcePath(drq, icopath);
         if(favfile != null) {
             try (FileInputStream fav = new FileInputStream(favfile);) {
@@ -110,9 +132,11 @@ public class D4TSServlet extends DapController
 
     @Override
     protected void
-    doCapabilities(DapRequest drq, DapContext cxt)
+    doCapabilities(DapContext cxt)
             throws IOException
     {
+        DapRequest drq = this.daprequest;
+
         addCommonHeaders(drq);
 
         // Figure out the directory containing
@@ -122,7 +146,7 @@ public class D4TSServlet extends DapController
             throw new DapException("Cannot locate resources directory");
 
         // Generate the front page
-        FrontPage front = new FrontPage(dir, drq);
+        FrontPage front = getFrontPage(drq, cxt);
         String frontpage = front.buildPage();
 
         if(frontpage == null)
@@ -151,7 +175,7 @@ public class D4TSServlet extends DapController
         File dataset = new File(datasetfilepath);
         if(!dataset.exists()) {
             String msg = String.format("Requested file does not exist: prefix=%s location=%s datasetfilepath=%s",
-                    prefix,location,datasetfilepath);
+                    prefix, location, datasetfilepath);
             throw new DapException(msg)
                     .setCode(HttpServletResponse.SC_NOT_FOUND);
         }
@@ -174,13 +198,17 @@ public class D4TSServlet extends DapController
         return "d4ts";
     }
 
-    @Override
-    public ServletContext
-    getServletContext()
+    /**
+     * Isolate front page builder so we can override if desired for testing.
+     *
+     * @param drq
+     * @param cxt
+     * @return
+     */
+    protected FrontPage
+    getFrontPage(DapRequest drq, DapContext cxt)
+            throws DapException
     {
-        if(this.servletcontext == null)
-            this.servletcontext = super.getServletContext();
-        assert (this.servletcontext != null);
-        return this.servletcontext;
+        return new FrontPage(this.defaultroots, drq);
     }
 }

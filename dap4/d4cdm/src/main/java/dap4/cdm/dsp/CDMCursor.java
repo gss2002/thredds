@@ -5,20 +5,17 @@
 package dap4.cdm.dsp;
 
 import dap4.cdm.CDMTypeFcns;
-import dap4.core.data.DataCursor;
+import dap4.cdm.CDMUtil;
 import dap4.core.dmr.*;
 import dap4.core.util.*;
+import dap4.core.util.Index;
 import dap4.dap4lib.AbstractCursor;
-import ucar.ma2.Array;
-import ucar.ma2.ArrayStructure;
-import ucar.ma2.DataType;
-import ucar.ma2.StructureMembers;
+import ucar.ma2.*;
 
 import java.util.List;
 
 public class CDMCursor extends AbstractCursor
 {
-
     //////////////////////////////////////////////////
     // Instance variables
 
@@ -60,29 +57,25 @@ public class CDMCursor extends AbstractCursor
             if(((DapVariable) this.getTemplate()).getRank() > 0
                     || DapUtil.isScalarSlices(slices))
                 throw new DapException("Cannot slice a scalar variable");
-            DataCursor[] instances = new DataCursor[1];
+            CDMCursor[] instances = new CDMCursor[1];
             instances[0] = this;
             return instances;
         case SEQUENCE:
             if(((DapVariable) this.getTemplate()).getRank() > 0
                     || DapUtil.isScalarSlices(slices))
                 throw new DapException("Cannot slice a scalar variable");
-            instances = new DataCursor[1];
+            instances = new CDMCursor[1];
             instances[0] = this;
             return instances;
         case STRUCTARRAY:
             Odometer odom = Odometer.factory(slices);
-            instances = new DataCursor[(int) odom.totalSize()];
+            instances = new CDMCursor[(int) odom.totalSize()];
             for(int i = 0; odom.hasNext(); i++) {
                 instances[i] = readStructure(odom.next());
             }
             return instances;
         case SEQARRAY:
-            odom = Odometer.factory(slices);
-            instances = new DataCursor[(int) odom.totalSize()];
-            for(int i = 0; odom.hasNext(); i++) {
-                instances[i] = readSequence(odom.next());
-            }
+            instances = readSequence(slices);
             return instances;
         default:
             throw new DapException("Attempt to slice a scalar object");
@@ -102,46 +95,70 @@ public class CDMCursor extends AbstractCursor
     readField(int findex)
             throws DapException
     {
-        assert (this.scheme == scheme.RECORD || this.scheme == scheme.STRUCTURE);
-        DapStructure basetype = (DapStructure)((DapVariable)getTemplate()).getBaseType();
+        if(this.scheme != scheme.RECORD && this.scheme != scheme.STRUCTURE)
+            throw new DapException("Illegal cursor scheme for readfield()");
+        DapVariable var = (DapVariable) getTemplate();
+        DapStructure basetype = (DapStructure) var.getBaseType();
         if(findex < 0 || findex >= basetype.getFields().size())
             throw new DapException("Field index out of range: " + findex);
-        assert this.structdata != null;
-        CDMCursor field = getFieldCursor(this,findex);
-        return field;
+        CDMCursor fieldcursor = null;
+        if(this.scheme == Scheme.RECORD) {
+            DapSequence seq = (DapSequence) basetype;
+            DapVariable field = seq.getField(0);
+            DapType fieldtype = field.getBaseType();
+            switch (fieldtype.getTypeSort()) {
+            default: // atomic
+                DataType cdmfieldtype = CDMTypeFcns.daptype2cdmtype(fieldtype);
+                if(cdmfieldtype == null)
+                    throw new dap4.core.util.DapException("Unknown field type: " + fieldtype);
+                int ri = (int) this.recordindex;
+                Object o = array.getObject(ri);
+                Array fielddata = CDMTypeFcns.arrayify(cdmfieldtype, o); // not very efficient; should do conversion
+                fieldcursor = new CDMCursor(Scheme.ATOMIC, (CDMDSP) this.dsp, field, this);
+                fieldcursor.setArray(fielddata);
+                break;
+            case Sequence:
+            case Structure:
+                break;
+            }
+        } else { // scheme == STRUCTURE
+            assert this.structdata != null;
+            fieldcursor = getFieldCursor(this, findex);
+        }
+        return fieldcursor;
     }
 
     protected CDMCursor
-        getFieldCursor(CDMCursor container, int findex)
-                throws DapException
-        {
-            // Now, create a cursors for a field f this instance
-            DapVariable var = (DapVariable) getTemplate();
-            DapStructure type = (DapStructure) var.getBaseType();
-            DapVariable field = (DapVariable) type.getFields().get(findex);
-            DapType ftype = field.getBaseType();
-            Scheme scheme = schemeFor(field);
-            CDMCursor fc = new CDMCursor(scheme, (CDMDSP) this.dsp, field, this);
-            StructureMembers.Member member = this.structdata.getStructureMembers().getMember(findex);
-            fc.setMember(member);
-            fc.setArray(this.structdata.getArray(fc.member));
-            return fc;
-        }
-
-    @Override
-    public long
-    getRecordCount()
+    getFieldCursor(CDMCursor container, int findex)
+            throws DapException
     {
-        assert (this.scheme == scheme.SEQUENCE);
-        throw new UnsupportedOperationException("Not a Sequence");
+        // Now, create a cursors for a field f this instance
+        DapVariable var = (DapVariable) getTemplate();
+        DapStructure type = (DapStructure) var.getBaseType();
+        DapVariable field = (DapVariable) type.getFields().get(findex);
+        DapType ftype = field.getBaseType();
+        Scheme scheme = schemeFor(field);
+        CDMCursor fc = new CDMCursor(scheme, (CDMDSP) this.dsp, field, this);
+        StructureMembers.Member member = this.structdata.getStructureMembers().getMember(findex);
+        fc.setMember(member);
+        fc.setArray(this.structdata.getArray(fc.member));
+        return fc;
     }
 
     @Override
     public CDMCursor
     readRecord(long i)
+            throws DapException
     {
-        assert (this.scheme == scheme.SEQUENCE);
-        throw new UnsupportedOperationException("Not a Sequence");
+        if(this.scheme != scheme.SEQUENCE)
+            throw new DapException("Attempt to read record from non-sequence cursor");
+        if(i < 0 || i >= this.recordcount)
+            throw new DapException("Record index out of bounds");
+        DapVariable var = (DapVariable) getTemplate();
+        CDMCursor c = new CDMCursor(Scheme.RECORD, (CDMDSP) this.dsp, var, this);
+        c.setArray(this.array);
+        c.setRecordIndex(i);
+        return c;
     }
 
     //////////////////////////////////////////////////
@@ -173,7 +190,7 @@ public class CDMCursor extends AbstractCursor
             throw new dap4.core.util.DapException("Unknown basetype: " + basetype);
         Object content = array.get1DJavaArray(datatype); // not very efficient; should do conversion
         Odometer odom = Odometer.factory(slices, dimset);
-        Object data = CDMTypeFcns.createVector(basetype, odom.totalSize());
+        Object data = CDMTypeFcns.createVector(datatype, odom.totalSize());
         for(int dstoffset = 0; odom.hasNext(); dstoffset++) {
             Index index = odom.next();
             long srcoffset = index.index();
@@ -204,12 +221,44 @@ public class CDMCursor extends AbstractCursor
         return instance;
     }
 
-    protected CDMCursor
-    readSequence(Index index)
+    protected CDMCursor[]
+    readSequence(List<Slice> slices)
             throws DapException
     {
         assert (this.scheme == scheme.SEQARRAY);
-        throw new UnsupportedOperationException();
+        DapVariable var = (DapVariable) getTemplate();
+        DapSequence type = (DapSequence) var.getBaseType();
+        // new CDMCursor(Scheme.SEQUENCE, (CDMDSP) this.dsp, var, this);
+        CDMCursor[] instances = new CDMCursor[(int) DapUtil.sliceProduct(slices)];
+        Array seqarray = this.array;
+        if(var.getRank() == 0) {// scalar
+            if(!DapUtil.isScalarSlices(slices))
+                throw new DapException("Non-scalar slice set applied to scalar variable");
+            instances[0] = new CDMCursor(Scheme.SEQUENCE, (CDMDSP) this.dsp, var, this);
+            instances[0].setArray(seqarray);
+            instances[0].setRecordCount(seqarray.getSize());
+        } else {
+            List<Range> rlist = CDMUtil.createCDMRanges(slices);
+            Array instancearray;
+            try {
+                instancearray = seqarray.section(rlist);
+            } catch (InvalidRangeException e) {
+                throw new DapException("Illegal slice set", e);
+            }
+            // extracted via List<Slice>. IN theory, this should be an array of arrays,
+            // but if the sequence field basetype is atomic, thenit is an array
+            // of atomic values.
+            int slicecount = (int) DapUtil.sliceProduct(slices);
+            for(int i = 0; i < slicecount; i++) {
+                Array ao = (Array)instancearray.getObject(i);
+                CDMCursor c = new CDMCursor(Scheme.SEQUENCE, (CDMDSP) this.dsp, var, this);
+                c.setArray(ao);
+                long rcount = ao.getSize();
+                c.setRecordCount(rcount);
+                instances[i] = c;
+            }
+        }
+        return instances;
     }
 
     //////////////////////////////////////////////////
@@ -219,6 +268,12 @@ public class CDMCursor extends AbstractCursor
     {
         this.array = a;
         return this;
+    }
+
+    public ucar.ma2.Array
+    getArray()
+    {
+        return this.array;
     }
 
     public CDMCursor setStructureData(ucar.ma2.StructureData sd)
@@ -236,7 +291,7 @@ public class CDMCursor extends AbstractCursor
     //////////////////////////////////////////////////
     // Utilities
 
-    static Scheme
+    static /*package*/ Scheme
     schemeFor(DapVariable field)
     {
         DapType ftype = field.getBaseType();

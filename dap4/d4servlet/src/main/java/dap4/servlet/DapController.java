@@ -35,6 +35,7 @@ abstract public class DapController extends HttpServlet
     // Constants
 
     static public boolean DEBUG = false;
+    static public boolean DUMPDMR = false;
     static public boolean DUMPDATA = false;
 
     static public boolean PARSEDEBUG = false;
@@ -83,7 +84,11 @@ abstract public class DapController extends HttpServlet
     //////////////////////////////////////////////////
     // Instance variables
 
+    protected boolean initialized = false; // Was initialize() called?
+
     transient protected DapContext dapcxt = new DapContext();
+
+    transient protected DapRequest daprequest = null;
 
     protected boolean compress = true;
 
@@ -91,17 +96,30 @@ abstract public class DapController extends HttpServlet
 
     protected ByteOrder order = null;
     protected ChecksumMode checksummode = ChecksumMode.DAP;
-
+    protected String resourcedir = null;
 
     //////////////////////////////////////////////////
-    // ServletContextAware
+    // Provide access to the servlet context that
+    // hides the differences between Servlets and Spring Controllers
 
-    transient protected ServletContext servletcontext = null;
+    protected ServletContext servlet_context = null;
 
-    public void setServletContext(ServletContext servletContext)
+    // WARNING: note the l.c. name
+    public void
+    setservletcontext(ServletContext cxt)
     {
-        this.servletcontext = servletcontext;
+        assert (this.servlet_context == null);
+        this.servlet_context = cxt;
     }
+
+    // WARNING: note the l.c. name to avoid interference with
+    // Servlet.getServletContext
+    public ServletContext
+    getservletcontext()
+    {
+        return this.servlet_context;
+    }
+
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -117,25 +135,26 @@ abstract public class DapController extends HttpServlet
     /**
      * Process a favicon request.
      *
-     * @param drq The merged dap state
+     * @param icopath The path to the icon
+     * @param cxt     The dap context
      */
 
-    abstract protected void doFavicon(DapRequest drq, String icopath, DapContext cxt) throws IOException;
+    abstract protected void doFavicon(String icopath, DapContext cxt) throws IOException;
 
     /**
      * Process a capabilities request.
      * Currently, does nothing (but see D4TSServlet.doCapabilities).
      *
-     * @param drq The merged dap state
+     * @param cxt The dapontext
      */
 
-    abstract protected void doCapabilities(DapRequest drq, DapContext cxt) throws IOException;
+    abstract protected void doCapabilities(DapContext cxt) throws IOException;
 
     /**
      * Convert a URL path into an absolute file path
      * Note that it is assumed than any leading servlet prefix has been removed.
      *
-     * @param drq      for context
+     * @param drq      dap request
      * @param location suffix of url path
      * @return
      * @throws IOException
@@ -157,11 +176,6 @@ abstract public class DapController extends HttpServlet
      */
     abstract public String getServletID();
 
-    /**
-     * Initialize servlet
-     */
-    abstract public void initialize();
-
     //////////////////////////////////////////////////////////
 
     public void init()
@@ -175,9 +189,19 @@ abstract public class DapController extends HttpServlet
             charset.setAccessible(true);
             charset.set(null, null);
             initialize();
+            assert getservletcontext() != null;
         } catch (Exception e) {
             throw new ServletException(e);
         }
+    }
+
+    /**
+         * Initialize servlet/controller
+         */
+    public void
+    initialize()
+    {
+        this.initialized = true;
     }
 
     //////////////////////////////////////////////////////////
@@ -189,7 +213,8 @@ abstract public class DapController extends HttpServlet
         return this;
     }
 
-    public DapContext getContext()
+    public DapContext
+    getDapContext()
     {
         return this.dapcxt;
     }
@@ -202,55 +227,55 @@ abstract public class DapController extends HttpServlet
             throws IOException
     {
         DapLog.debug("doGet(): User-Agent = " + req.getHeader("User-Agent"));
-        if(TESTING) {
-            String resourcedir = (String) req.getAttribute("RESOURCEDIR");
-            this.dapcxt.put("RESOURCEDIR", resourcedir);
-        }
-        DapRequest drq = getRequestState(req, res);
-        String url = drq.getOriginalURL();
+        if(!this.initialized) initialize();
+        this.daprequest = getRequestState(req, res);
+        String url = this.daprequest.getOriginalURL();
         StringBuilder info = new StringBuilder("doGet():");
         info.append(" dataset = ");
         info.append(" url = ");
         info.append(url);
         if(DEBUG) {
-            System.err.println("DAP4 Servlet: processing url: " + drq.getOriginalURL());
+            System.err.println("DAP4 Servlet: processing url: " + this.daprequest.getOriginalURL());
         }
         assert (this.dapcxt != null);
         // Add entries to the context
         this.dapcxt.put(HttpServletRequest.class, req);
         this.dapcxt.put(HttpServletResponse.class, res);
 
-        this.order = drq.getOrder();
-        this.checksummode = drq.getChecksumMode();
+        this.order = this.daprequest.getOrder();
+        this.checksummode = this.daprequest.getChecksumMode();
+        this.resourcedir = this.daprequest.getResourceDir();
         this.dapcxt.put(Dap4Util.DAP4ENDIANTAG, this.order);
         this.dapcxt.put(Dap4Util.DAP4CSUMTAG, this.checksummode);
+        if(this.resourcedir != null)
+            this.dapcxt.put("RESOURCEDIR",this.resourcedir);
 
         if(url.endsWith(FAVICON)) {
-            doFavicon(drq, FAVICON, this.dapcxt);
+            doFavicon(FAVICON, this.dapcxt);
             return;
         }
 
-        String datasetpath = DapUtil.nullify(DapUtil.canonicalpath(drq.getDataset()));
+        String datasetpath = DapUtil.nullify(DapUtil.canonicalpath(this.daprequest.getDataset()));
         try {
             if(datasetpath == null) {
                 // This is the case where a request was made without a dataset;
                 // According to the spec, I think we should return the
                 // services/capabilities document
-                doCapabilities(drq, this.dapcxt);
+                doCapabilities(this.dapcxt);
             } else {
-                RequestMode mode = drq.getMode();
+                RequestMode mode = this.daprequest.getMode();
                 if(mode == null)
                     throw new DapException("Unrecognized request extension")
                             .setCode(HttpServletResponse.SC_BAD_REQUEST);
                 switch (mode) {
                 case DMR:
-                    doDMR(drq, this.dapcxt);
+                    doDMR(this.dapcxt);
                     break;
                 case DAP:
-                    doData(drq, this.dapcxt);
+                    doData(this.dapcxt);
                     break;
                 case DSR:
-                    doDSR(drq, this.dapcxt);
+                    doDSR(this.dapcxt);
                     break;
                 default:
                     throw new DapException("Unrecognized request extension")
@@ -276,7 +301,7 @@ abstract public class DapController extends HttpServlet
                 code = DapCodes.SC_BAD_REQUEST;
             else
                 code = DapCodes.SC_INTERNAL_SERVER_ERROR;
-            senderror(drq, code, t);
+            senderror(this.daprequest, code, t);
         }//catch
     }
 
@@ -285,12 +310,14 @@ abstract public class DapController extends HttpServlet
 
     /**
      * Process a DSR request.
+     * * @param cxt     The dap context
      */
 
     protected void
-    doDSR(DapRequest drq, DapContext cxt)
+    doDSR(DapContext cxt)
             throws IOException
     {
+        DapRequest drq = this.daprequest;
         try {
             String dsr = dsrbuilder.generate(drq.getURL());
             OutputStream out = drq.getOutputStream();
@@ -308,13 +335,15 @@ abstract public class DapController extends HttpServlet
     /**
      * Process a DMR request.
      *
-     * @param drq The merged dap state
+     * @param cxt     The dap context
      */
 
     protected void
-    doDMR(DapRequest drq, DapContext cxt)
+    doDMR(DapContext cxt)
             throws IOException
     {
+        DapRequest drq = this.daprequest;
+
         // Convert the url to an absolute path
         String realpath = getResourcePath(drq, drq.getDatasetPath());
 
@@ -358,14 +387,16 @@ abstract public class DapController extends HttpServlet
      * then it has not yet started to output
      * a response. It a response had been initiated,
      * then the exception would produce an error chunk.
-     *
-     * @param drq The merged dap state
+     * <p>
+     * * @param cxt     The dap context
      */
 
     protected void
-    doData(DapRequest drq, DapContext cxt)
+    doData(DapContext cxt)
             throws IOException
     {
+        DapRequest drq = this.daprequest;
+
         // Convert the url to an absolute path
         String realpath = getResourcePath(drq, drq.getDatasetPath());
 
@@ -373,6 +404,16 @@ abstract public class DapController extends HttpServlet
         if(dsp == null)
             throw new IOException("No such file: " + drq.getResourcePath());
         DapDataset dmr = dsp.getDMR();
+        if(DUMPDMR) {
+            StringWriter sw = new StringWriter();
+            PrintWriter stream = new PrintWriter(sw);
+            DMRPrinter printer = new DMRPrinter(dmr, stream);
+            printer.print();
+            stream.close();
+            sw.close();
+            System.err.println(sw.toString());
+            System.err.flush();
+        }
 
         /* Annotate with our endianness */
         addEndianness(dmr, drq);

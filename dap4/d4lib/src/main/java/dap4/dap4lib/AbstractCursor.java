@@ -32,7 +32,7 @@ abstract public class AbstractCursor implements DataCursor
     protected Index arrayindex = null;
     protected long recordindex = -1; // scheme == record
 
-    protected DataCursor container = null;
+    protected AbstractCursor container = null;
 
     protected long recordcount = -1;
 
@@ -80,9 +80,6 @@ abstract public class AbstractCursor implements DataCursor
 
     @Override
     abstract public Object read(Index index) throws DapException;
-
-    @Override
-    abstract public long getRecordCount();
 
     @Override
     abstract public AbstractCursor readRecord(long i) throws DapException;
@@ -150,7 +147,18 @@ abstract public class AbstractCursor implements DataCursor
     }
 
     @Override
-    public DataCursor
+    public long
+    getRecordCount()
+            throws DapException
+    {
+        if(this.scheme != Scheme.SEQUENCE)
+            throw new DapException("Not a SEQUENCE instance");
+        return this.recordcount;
+    }
+
+
+    @Override
+    public AbstractCursor
     getContainer()
     {
         return this.container;

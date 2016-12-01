@@ -91,6 +91,18 @@ public class Index
         return this.indices[i];
     }
 
+    public long
+        getSize(int i)
+        {
+            if(i < 0 || i >= this.rank)
+                throw new IllegalArgumentException();
+            return this.dimsizes[i];
+        }
+
+    public boolean isScalar()
+    {
+        return (rank == 0 && indices.length == 1 && index() == 1);
+    }
 
 
 }

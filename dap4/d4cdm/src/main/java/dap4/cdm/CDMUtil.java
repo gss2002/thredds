@@ -143,7 +143,7 @@ abstract public class CDMUtil
 
     static public List<ucar.ma2.Range>
     createCDMRanges(List<Slice> slices)
-            throws IOException
+            throws DapException
     {
         List<ucar.ma2.Range> cdmranges = new ArrayList<Range>();
         for(int i = 0; i < slices.size(); i++) {
@@ -155,7 +155,7 @@ abstract public class CDMUtil
                         (int) r.getStride());
                 cdmranges.add(cmdr);
             } catch (InvalidRangeException ire) {
-                throw new IOException(ire);
+                throw new DapException(ire);
             }
         }
         return cdmranges;
@@ -568,11 +568,13 @@ abstract public class CDMUtil
     {
         int rank = d4.getRank();
         int[] shape = new int[rank];
+        int[] indices = new int[rank];
         for(int i = 0; i < rank; i++) {
-            shape[i] = (int)d4.get(i);
+            indices[i] = (int)d4.get(i);
+            shape[i] = (int)d4.getSize(i);
         }
         ucar.ma2.Index cdm =  ucar.ma2.Index.factory(shape);
+        cdm.set(indices);
         return cdm;
     }
-
 }

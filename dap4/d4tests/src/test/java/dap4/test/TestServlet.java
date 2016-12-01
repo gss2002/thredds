@@ -223,7 +223,8 @@ public class TestServlet extends DapTestCommon
         String url = testcase.makeurl(RequestMode.DMR);
         String little = (USEBIG ? "0" : "1");
         String nocsum = (NOCSUM ? "1" : "0");
-        MvcResult result = perform(url, RESOURCEPATH, this.mockMvc,
+        MvcResult result = perform(url, this.mockMvc,
+                "RESOURCEDIR",RESOURCEPATH,
                 DapTestCommon.ORDERTAG, little,
                 DapTestCommon.NOCSUMTAG, nocsum
         );
@@ -254,7 +255,8 @@ public class TestServlet extends DapTestCommon
         String url = testcase.makeurl(RequestMode.DAP);
         String little = (USEBIG ? "0" : "1");
         String nocsum = (NOCSUM ? "1" : "0");
-        MvcResult result = perform(url, RESOURCEPATH, this.mockMvc,
+        MvcResult result = perform(url, this.mockMvc,
+                "RESOURCEDIR",RESOURCEPATH,
                 DapTestCommon.ORDERTAG, little,
                 DapTestCommon.NOCSUMTAG, nocsum
         );

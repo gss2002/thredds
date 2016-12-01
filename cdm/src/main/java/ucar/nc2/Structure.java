@@ -89,6 +89,24 @@ public class Structure extends Variable {
     memberHash = new HashMap<>();
   }
 
+  /**
+   * Create a Structure "from scratch". Also must call setDimensions().
+   * @param ncfile
+   * @param group
+   * @param parent
+   * @param shortName
+   * @param dimset
+     */
+    public Structure(NetcdfFile ncfile, Group group, Structure parent,
+                     String shortName, List<Dimension> dimset) {
+     super(ncfile, group, parent, shortName);
+     setDataType(DataType.STRUCTURE);
+      setDimensions(dimset);
+     this.elementSize = -1; // gotta wait before calculating
+     members = new ArrayList<>();
+     memberHash = new HashMap<>();
+   }
+
   /** Copy constructor.
    * @param from  copy from this
    */
@@ -405,7 +423,7 @@ public class Structure extends Variable {
   }
 
   /**
-   * Get an efficient iterator over all the data in the Structure. 
+   * Get an efficient iterator over all the data in the Structure.
    *
    * This is the efficient way to get all the data, it can be much faster than reading one record at a time,
    *   and is optimized for large datasets.

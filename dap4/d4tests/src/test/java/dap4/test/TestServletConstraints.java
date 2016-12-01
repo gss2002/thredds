@@ -251,7 +251,8 @@ public class TestServletConstraints extends DapTestCommon
 
         String little = (USEBIG ? "0" : "1");
         String nocsum = (NOCSUM ? "1" : "0");
-        MvcResult result = perform(url, RESOURCEPATH, this.mockMvc,
+        MvcResult result = perform(url, this.mockMvc,
+                "RESOURCEDIR",RESOURCEPATH,
                 DapTestCommon.CONSTRAINTTAG, query,
                 DapTestCommon.ORDERTAG, little,
                 DapTestCommon.NOCSUMTAG, nocsum);
@@ -284,7 +285,8 @@ public class TestServletConstraints extends DapTestCommon
         String basepath = testcase.makeBasepath(RequestMode.DAP);
         String little = (USEBIG ? "0" : "1");
         String nocsum = (NOCSUM ? "1" : "0");
-        MvcResult result = perform(url, RESOURCEPATH, this.mockMvc,
+        MvcResult result = perform(url, this.mockMvc,
+                "RESOURCEDIR",RESOURCEPATH,
                 DapTestCommon.CONSTRAINTTAG, query,
                 DapTestCommon.ORDERTAG, little,
                 DapTestCommon.NOCSUMTAG, nocsum);

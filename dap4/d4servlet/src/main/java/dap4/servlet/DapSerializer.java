@@ -9,7 +9,10 @@ import dap4.core.data.ChecksumMode;
 import dap4.core.data.DSP;
 import dap4.core.data.DataCursor;
 import dap4.core.dmr.*;
-import dap4.core.util.*;
+import dap4.core.util.DapException;
+import dap4.core.util.Index;
+import dap4.core.util.Odometer;
+import dap4.core.util.Slice;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -103,7 +106,7 @@ public class DapSerializer
             writeSequence(data, dst);
             break;
         default:
-            assert false : "Unexpected variable type: "+data.toString();
+            assert false : "Unexpected variable type: " + data.toString();
         }
         dst.endVariable();
     }
@@ -197,10 +200,17 @@ public class DapSerializer
         assert (this.ce.references(template));
         List<Slice> slices = ce.getConstrainedSlices(template);
         Odometer odom = Odometer.factory(slices);
-        while(odom.hasNext()) {
+        if(false) while(odom.hasNext()) {
             Index index = odom.next();
             DataCursor[] instance = (DataCursor[]) data.read(index);
             writeSequence1(instance[0], dst);
+        }
+        else {
+            DataCursor[] instances = (DataCursor[]) data.read(slices);
+            for(int i = 0; i < instances.length; i++) {
+                writeSequence1(instances[i], dst);
+            }
+
         }
     }
 

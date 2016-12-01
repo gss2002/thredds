@@ -63,10 +63,10 @@ public class DapRequest
 
     protected Map<String, String> queries = new HashMap<String, String>();
     protected DapController controller = null;
-    protected ServletContext servletcontext = null;
 
     protected ByteOrder order = ByteOrder.nativeOrder();
     protected ChecksumMode checksummode = null;
+    protected String resourcedir = null;
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -79,7 +79,6 @@ public class DapRequest
         this.controller = controller;
         this.request = request;
         this.response = response;
-        this.servletcontext = request.getServletContext();
         try {
             parse();
         } catch (IOException ioe) {
@@ -224,6 +223,8 @@ public class DapRequest
         if(this.checksummode == null)
             this.checksummode = DEFAULTCSUM;
 
+        this.resourcedir = queryLookup("RESOURCDIR");
+
         if(DEBUG) {
             DapLog.debug("DapRequest: controllerpath =" + this.controllerpath);
             DapLog.debug("DapRequest: extension=" + (this.mode == null ? "null" : this.mode.extension()));
@@ -239,15 +240,15 @@ public class DapRequest
         return this.order;
     }
 
+    public String getResourceDir()
+        {
+            return this.resourcedir;
+        }
+
     public ChecksumMode
     getChecksumMode()
     {
         return this.checksummode;
-    }
-
-    public ServletContext getContext()
-    {
-        return this.servletcontext;
     }
 
     public HttpServletRequest getRequest()

@@ -124,6 +124,7 @@ abstract public class DapNode
 
     public DapNode annotate(Object value)
     {
+        assert annotation == null;
         annotation = value;
         return this;
     }

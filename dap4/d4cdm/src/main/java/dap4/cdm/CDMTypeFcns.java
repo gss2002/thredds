@@ -10,13 +10,17 @@ import dap4.core.dmr.TypeSort;
 import dap4.core.util.ConversionException;
 import dap4.core.util.DapException;
 import dap4.core.util.DapUtil;
+import dap4.core.util.Slice;
+import ucar.ma2.Array;
 import ucar.ma2.DataType;
 import ucar.ma2.ForbiddenConversionException;
+import ucar.ma2.InvalidRangeException;
 import ucar.nc2.EnumTypedef;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * This Class is used to isolate as many as possible
@@ -78,49 +82,61 @@ abstract public class CDMTypeFcns
     }
 
     static public Object
-    createVector(DapType type, long count)
+    createVector(DataType type, long count)
     {
         int icount = (int) count;
         Object vector = null;
-        switch (type.getAtomicType()) {
-        case Char:
+        switch (type) {
+        case BOOLEAN:
+            vector = new boolean[icount];
+            break;
+        case CHAR:
             vector = new char[icount];
             break;
-        case UInt8:
-        case Int8:
+        case ENUM1:
+        case UBYTE:
+        case BYTE:
             vector = new byte[icount];
             break;
-        case Int16:
-        case UInt16:
+        case ENUM2:
+            ;
+        case SHORT:
+        case USHORT:
             vector = new short[icount];
             break;
-        case Int32:
-        case UInt32:
+        case ENUM4:
+        case INT:
+        case UINT:
             vector = new int[icount];
             break;
-        case Int64:
-        case UInt64:
+        case LONG:
+        case ULONG:
             vector = new long[icount];
             break;
-        case Float32:
+        case FLOAT:
             vector = new float[icount];
             break;
-        case Float64:
+        case DOUBLE:
             vector = new double[icount];
             break;
-        case String:
-        case URL:
+        case STRING:
             vector = new String[icount];
             break;
-        case Opaque:
+        case OPAQUE:
             vector = new ByteBuffer[icount];
             break;
-        case Enum:
-            return createVector(((DapEnumeration) type).getBaseType(), count);
         default:
             throw new ForbiddenConversionException();
         }
         return vector;
+    }
+
+    static public Object
+    createVector(DapType type, long count)
+    {
+        if(type.getAtomicType() == TypeSort.Enum)
+            return createVector(((DapEnumeration) type).getBaseType(), count);
+        return createVector(CDMTypeFcns.daptype2cdmtype(type), count);
     }
 
     static public DataType
@@ -201,7 +217,7 @@ abstract public class CDMTypeFcns
     static public DataType
     daptype2cdmtype(DapType type)
     {
-        assert(type != null);
+        assert (type != null);
         switch (type.getTypeSort()) {
         case Char:
             return DataType.CHAR;
@@ -1090,4 +1106,85 @@ abstract public class CDMTypeFcns
         return o;
     }
 
+    static public boolean
+    isPrimitiveVector(DataType type, Object o)
+    {
+        Class c = o.getClass();
+        if(!c.isArray())
+            return false;
+        // cannot use isAssignableFrom, I think because primitive
+        switch (type) {
+        case BOOLEAN:
+            return o instanceof boolean[];
+        case CHAR:
+            return o instanceof char[];
+        case ENUM1:
+        case BYTE:
+        case UBYTE:
+            return o instanceof byte[];
+        case ENUM2:
+        case SHORT:
+        case USHORT:
+            return o instanceof short[];
+        case ENUM4:
+        case INT:
+        case UINT:
+            return o instanceof int[];
+        case LONG:
+        case ULONG:
+            return o instanceof long[];
+        case FLOAT:
+            return o instanceof float[];
+        case DOUBLE:
+            return o instanceof double[];
+        case STRING:
+            return o instanceof String[];
+        case OPAQUE:
+            return o instanceof ByteBuffer[];
+        default:
+            break;
+        }
+        return false;
+    }
+
+    static public Array
+    arrayify(DataType datatype, Object o)
+    {
+        // 1. o is a constant
+        if(!o.getClass().isArray()) {
+            Object ovec = createVector(datatype, 1);
+            java.lang.reflect.Array.set(ovec, 0, o);
+            o = ovec;
+        }
+        int[] shape = new int[]{java.lang.reflect.Array.getLength(o)};
+        return Array.factory(datatype, shape, o);
+    }
+
+    static public Array
+    arrayify(DapType type, Object o)
+    {
+        if(type.getAtomicType() == TypeSort.Enum)
+            return arrayify(((DapEnumeration) type).getBaseType(), o);
+        return arrayify(CDMTypeFcns.daptype2cdmtype(type), o);
+    }
+
+    /*
+    static public Array
+    arraysection(Array a, List<Slice> slices)
+    {
+        int rank = slices.size();
+        int[] origin = new int[rank];
+        int[] subshape = new int[rank];
+        for(int i = 0; i < rank; i++) {
+            origin[i] = 0;
+            subshape[i] = (int) index.get(i);
+        }
+        subshape[rank - 1] = 1; // remove  vlen dimension
+            Array records;
+            try {
+                records = seqarray.section(origin, subshape, null);
+            } catch (InvalidRangeException e) {
+                throw new DapException("Illegal index", e);
+            }
+            */
 }

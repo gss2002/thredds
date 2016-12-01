@@ -488,8 +488,10 @@ abstract public class DapUtil // Should only contain static methods
     join(String[] array, String sep, int from, int upto)
     {
         if(sep == null) sep = "";
-        if(from < 0 || upto <= from || upto > array.length)
+        if(from < 0 || upto > array.length)
             throw new IndexOutOfBoundsException();
+        if(upto <= from)
+            return "";
         StringBuilder result = new StringBuilder();
         boolean first = true;
         for(int i = from; i < upto; i++, first = false) {
