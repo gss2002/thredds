@@ -224,7 +224,7 @@ public class TestServlet extends DapTestCommon
         String little = (USEBIG ? "0" : "1");
         String nocsum = (NOCSUM ? "1" : "0");
         MvcResult result = perform(url, this.mockMvc,
-                "RESOURCEDIR",RESOURCEPATH,
+                RESOURCEPATH,
                 DapTestCommon.ORDERTAG, little,
                 DapTestCommon.NOCSUMTAG, nocsum
         );
@@ -256,7 +256,7 @@ public class TestServlet extends DapTestCommon
         String little = (USEBIG ? "0" : "1");
         String nocsum = (NOCSUM ? "1" : "0");
         MvcResult result = perform(url, this.mockMvc,
-                "RESOURCEDIR",RESOURCEPATH,
+                RESOURCEPATH,
                 DapTestCommon.ORDERTAG, little,
                 DapTestCommon.NOCSUMTAG, nocsum
         );

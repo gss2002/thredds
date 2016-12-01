@@ -77,8 +77,7 @@ public class TestFrontPage extends DapTestCommon
         // Figure out the baseline
         String baselinepath = canonjoin(this.resourceroot, BASELINEDIR, TESTFILE);
 
-        MvcResult result = perform(url, this.mockMvc,
-                "RESOURCEDIR",RESOURCEPATH);
+        MvcResult result = perform(url, this.mockMvc, RESOURCEPATH);
 
         // Collect the output
         MockHttpServletResponse res = result.getResponse();

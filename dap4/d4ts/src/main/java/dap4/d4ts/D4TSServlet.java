@@ -14,7 +14,6 @@ import dap4.dap4lib.FileDSP;
 import dap4.dap4lib.netcdf.Nc4DSP;
 import dap4.servlet.*;
 
-import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -82,16 +81,15 @@ public class D4TSServlet extends DapController
     @Override
     public void initialize()
     {
-        super.setservletcontext(getServletContext());
         super.initialize();
         DapLog.info("Initializing d4ts servlet");
-        ServletContext svccxt = getservletcontext();
-        // Construct the resource dir path
-        String svcroot = svccxt.getRealPath("");
-        assert svcroot != null;
-        String resourcedir = DapUtil.canonjoin(svcroot, RESOURCEPATH);
-        this.dapcxt.put("RESOURCEDIR", resourcedir);
         if(this.defaultroots == null) {
+            ServletContext svccxt = get_servlet_context();
+            // Construct the resource dir path
+            String svcroot = svccxt.getRealPath("");
+            assert svcroot != null;
+            String resourcedir = DapUtil.canonjoin(svcroot, RESOURCEPATH);
+            this.dapcxt.put("RESOURCEDIR", resourcedir);
             this.defaultroots = new ArrayList<>();
             this.defaultroots.add(
                     new Root(DapUtil.canonjoin(resourcedir, "testfiles"), "Test Files"));
@@ -211,4 +209,5 @@ public class D4TSServlet extends DapController
     {
         return new FrontPage(this.defaultroots, drq);
     }
+
 }

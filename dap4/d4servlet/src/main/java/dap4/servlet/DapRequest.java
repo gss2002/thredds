@@ -52,6 +52,7 @@ public class DapRequest
 
     protected HttpServletRequest request = null;
     protected HttpServletResponse response = null;
+
     protected String url = null;  // without any query  and as with any modified dataset path
     protected String querystring = null;
     protected String server = null; // scheme + host + port
@@ -223,7 +224,7 @@ public class DapRequest
         if(this.checksummode == null)
             this.checksummode = DEFAULTCSUM;
 
-        this.resourcedir = queryLookup("RESOURCDIR");
+        this.resourcedir = (String)this.request.getAttribute("RESOURCEDIR");
 
         if(DEBUG) {
             DapLog.debug("DapRequest: controllerpath =" + this.controllerpath);
@@ -241,9 +242,9 @@ public class DapRequest
     }
 
     public String getResourceDir()
-        {
-            return this.resourcedir;
-        }
+    {
+        return this.resourcedir;
+    }
 
     public ChecksumMode
     getChecksumMode()

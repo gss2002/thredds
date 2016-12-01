@@ -99,23 +99,25 @@ abstract public class DapController extends HttpServlet
     protected String resourcedir = null;
 
     //////////////////////////////////////////////////
-    // Provide access to the servlet context that
-    // hides the differences between Servlets and Spring Controllers
+    // Provide access to the servlet context
+    // Unfortunately, Intellij + Spring is so screwed up
+    // that I cannot rely on autowiring.
 
     protected ServletContext servlet_context = null;
 
-    // WARNING: note the l.c. name
+    // WARNING: note the name
     public void
-    setservletcontext(ServletContext cxt)
+    set_servlet_context(ServletContext cxt)
     {
         assert (this.servlet_context == null);
         this.servlet_context = cxt;
     }
 
-    // WARNING: note the l.c. name to avoid interference with
+    // WARNING: note the name to avoid interference with
     // Servlet.getServletContext
+    // Generally subclass over-ridden
     public ServletContext
-    getservletcontext()
+    get_servlet_context()
     {
         return this.servlet_context;
     }
@@ -189,7 +191,6 @@ abstract public class DapController extends HttpServlet
             charset.setAccessible(true);
             charset.set(null, null);
             initialize();
-            assert getservletcontext() != null;
         } catch (Exception e) {
             throw new ServletException(e);
         }
@@ -227,6 +228,8 @@ abstract public class DapController extends HttpServlet
             throws IOException
     {
         DapLog.debug("doGet(): User-Agent = " + req.getHeader("User-Agent"));
+        if(this.servlet_context == null)
+            set_servlet_context(req.getServletContext());
         if(!this.initialized) initialize();
         this.daprequest = getRequestState(req, res);
         String url = this.daprequest.getOriginalURL();

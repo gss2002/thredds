@@ -16,6 +16,7 @@ import dap4.servlet.DapRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.context.ServletContextAware;
 import thredds.core.TdsRequestedDataset;
 
 import javax.servlet.ServletContext;
@@ -68,6 +69,9 @@ public class Dap4Controller extends DapController
     public void handleRequest(HttpServletRequest req, HttpServletResponse res)
             throws IOException
     {
+        assert (this.servletContext == null);
+        if(this.servletContext != null && this.servlet_context == null)
+            set_servlet_context(req.getServletContext());
         super.handleRequest(req, res);
     }
 
@@ -80,15 +84,6 @@ public class Dap4Controller extends DapController
     }
 
     //////////////////////////////////////////////////////////
-
-    @Override
-    public void
-    initialize()
-    {
-        assert this.servletContext != null;
-        super.setservletcontext(this.servletContext);
-        super.initialize();
-    }
 
     @Override
     protected void
