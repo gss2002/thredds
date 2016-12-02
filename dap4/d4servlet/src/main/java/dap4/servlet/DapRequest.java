@@ -67,7 +67,9 @@ public class DapRequest
 
     protected ByteOrder order = ByteOrder.nativeOrder();
     protected ChecksumMode checksummode = null;
-    protected String resourcedir = null;
+    protected String resourceroot = null;
+
+    protected ServletContext servletcontext = null;
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -80,6 +82,11 @@ public class DapRequest
         this.controller = controller;
         this.request = request;
         this.response = response;
+        this.servletcontext = request.getServletContext();
+
+        // Figure out the absolute path to our resources directory
+        this.resourceroot = (String)this.request.getAttribute("RESOURCEDIR");
+
         try {
             parse();
         } catch (IOException ioe) {
@@ -224,8 +231,6 @@ public class DapRequest
         if(this.checksummode == null)
             this.checksummode = DEFAULTCSUM;
 
-        this.resourcedir = (String)this.request.getAttribute("RESOURCEDIR");
-
         if(DEBUG) {
             DapLog.debug("DapRequest: controllerpath =" + this.controllerpath);
             DapLog.debug("DapRequest: extension=" + (this.mode == null ? "null" : this.mode.extension()));
@@ -241,9 +246,9 @@ public class DapRequest
         return this.order;
     }
 
-    public String getResourceDir()
+    public String getResourceRoot()
     {
-        return this.resourcedir;
+        return this.resourceroot;
     }
 
     public ChecksumMode
@@ -289,6 +294,11 @@ public class DapRequest
         return this.server;
     }
 
+    public ServletContext getServletContext()
+    {
+        return this.servletcontext;
+    }
+
     public String getControllerPath()
     {
         return this.controllerpath;
@@ -325,11 +335,11 @@ public class DapRequest
         return queries.get(name.toLowerCase());
     }
 
-    public String getResourcePath()
+    /*public String getResourcePath()
             throws IOException
     {
         return getResourcePath(getDatasetPath());
-    }
+    } */
 
     public String getResourcePath(String relpath)
             throws IOException

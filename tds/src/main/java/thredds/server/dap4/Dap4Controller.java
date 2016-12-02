@@ -69,9 +69,6 @@ public class Dap4Controller extends DapController
     public void handleRequest(HttpServletRequest req, HttpServletResponse res)
             throws IOException
     {
-        assert (this.servletContext == null);
-        if(this.servletContext != null && this.servlet_context == null)
-            set_servlet_context(req.getServletContext());
         super.handleRequest(req, res);
     }
 
@@ -123,9 +120,9 @@ public class Dap4Controller extends DapController
     @Override
     public String
     getResourcePath(DapRequest drq, String location)
-            throws IOException
+            throws DapException
     {
-        String prefix = (String) this.dapcxt.get("RESOURCEDIR");
+        String prefix = drq.getResourceRoot();
         String realpath;
         if(prefix != null) {
             realpath = DapUtil.canonjoin(prefix, location);

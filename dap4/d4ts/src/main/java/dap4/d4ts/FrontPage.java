@@ -22,37 +22,41 @@ import java.util.List;
 public class FrontPage
 {
 
+    static final boolean DUMPFILELIST = false;
+
     //////////////////////////////////////////////////
     // Constants
 
     static final protected boolean NO_VLEN = false; // ignore vlen datasets for now
 
-    static final protected String[] expatterns =  new String[0];
+    static final protected String[] expatterns = new String[0];
 
     // Define the file sources of interest
     static final protected FileSource[] SOURCES = new FileSource[]{
             new FileSource(".nc", "netCDF"),
             new FileSource(".hdf5", "HDF5"),
-            new FileSource(".raw", "Raw"),
+            new FileSource(".dap", "Raw Protocol Output"),
             new FileSource(".syn", "Synthetic")
     };
 
     static public class Root
     {
+        public String prefix;
         public String dir;
-        public String title;
         public List<FileSource> files;
 
         public String toString()
         {
-            return String.format("{'%s' '%s'}",this.dir,this.title);
+            return String.format("{'%s/%s'}", this.prefix,this.dir);
         }
 
-        public Root(String dir, String title)
+        public Root(String dir, String prefix)
         {
             this.dir = dir;
-            this.title = title;
+            this.prefix = DapUtil.canonicalpath(prefix);
         }
+
+        public String getFullPath() {return DapUtil.canonjoin(this.prefix,this.dir);}
 
         public void setFiles(List<FileSource> files)
         {
@@ -115,11 +119,11 @@ public class FrontPage
     buildFileList(Root rootinfo)
             throws DapException
     {
-        File root = new File(rootinfo.dir);
+        File root = new File(rootinfo.getFullPath());
         if(!root.isDirectory())
-            throw new DapException("FrontPage: specified root directory is not a directory: " + rootinfo.dir);
+            throw new DapException("FrontPage: specified root directory is not a directory: " + rootinfo.getFullPath());
         if(!root.canRead())
-            throw new DapException("FrontPage: specified root directory is not readable: " + rootinfo.dir);
+            throw new DapException("FrontPage: specified root directory is not readable: " + rootinfo.getFullPath());
 
         // take files from set of files immediately under root
         File[] candidates = root.listFiles();
@@ -138,11 +142,14 @@ public class FrontPage
                 }
                 if(excluded) continue;
                 if(!name.endsWith(src.ext)) continue;
-                if(false && !candidate.canRead()) {
+                if(!candidate.canRead()) {
                     DapLog.info("FrontPage: file not readable: " + candidate);
                     continue;
                 }
                 matches.add(candidate);
+                if(DUMPFILELIST) {
+                    System.err.printf("file: %s/%s%n",rootinfo.prefix,name);
+                }
             }
             if(matches.size() > 0) {
                 FileSource clone = new FileSource(src.ext, src.tag);
@@ -159,19 +166,30 @@ public class FrontPage
     {
         StringBuilder html = new StringBuilder();
         html.append(HTML_PREFIX);
-        for(Root root: this.roots) {
-            html.append(String.format(HTML_HEADER1,root.title));
-            html.append(String.format(HTML_HEADER2,root.dir));
+        html.append(HTML_HEADER1);
+
+        StringBuilder rootnames = new StringBuilder();
+        for(Root root : this.roots) {
+            if(rootnames.length() > 0)
+                rootnames.append(",");
+           rootnames.append(root.dir);
+        }
+        html.append(String.format(HTML_HEADER2,rootnames));
+
+        for(Root root : this.roots) {
             try {
                 for(FileSource src : root.files) {
                     html.append(String.format(HTML_HEADER3, src.tag));
                     html.append(TABLE_HEADER);
                     for(File file : src.files) {
                         String name = file.getName();
-                        String absname;
-                        absname = DapUtil.canonicalpath(file.getAbsolutePath());
-                        String datasetname = DapUtil.denullify(absname.substring(root.dir.length()));
-                        String urlpath = this.drq.getControllerPath() + datasetname; // append remainder not used by mappath
+                        StringBuilder buf = new StringBuilder();
+                        buf.append(this.drq.getControllerPath());
+                        buf.append('/');
+                        buf.append(DapUtil.canonicalpath(root.dir));
+                        buf.append('/');
+                        buf.append(DapUtil.canonicalpath(name));
+                        String urlpath = buf.toString();
                         String line = String.format(HTML_FORMAT,
                                 name,
                                 urlpath,
@@ -258,8 +276,8 @@ public class FrontPage
     static final String HTML_PREFIX =
             "<html>\n<head>\n<title>DAP4 Test Files</title>\n<meta http-equiv=\"Content-Type\" content=\"text/html\">\n</meta>\n<body bgcolor=\"#FFFFFF\">\n";
 
-    static final String HTML_HEADER1 = "<h1>%s</h1>%n";
-    static final String HTML_HEADER2 = "<h2>http://" + dap4TestServer + "/d4ts/%s</h2>\n<hr>%n";
+    static final String HTML_HEADER1 = "<h1>DAP4 Test Files</h1>\n";
+    static final String HTML_HEADER2 = "<h2>http://" + dap4TestServer + "/d4ts/{%s}</h2>%n<hr>%n";
     static final String HTML_HEADER3 = "<h3>%s Based Test Files</h3>%n";
 
     static final String TABLE_HEADER = "<table>\n";

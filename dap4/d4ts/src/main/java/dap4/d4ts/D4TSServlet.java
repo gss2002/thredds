@@ -83,19 +83,6 @@ public class D4TSServlet extends DapController
     {
         super.initialize();
         DapLog.info("Initializing d4ts servlet");
-        if(this.defaultroots == null) {
-            ServletContext svccxt = get_servlet_context();
-            // Construct the resource dir path
-            String svcroot = svccxt.getRealPath("");
-            assert svcroot != null;
-            String resourcedir = DapUtil.canonjoin(svcroot, RESOURCEPATH);
-            this.dapcxt.put("RESOURCEDIR", resourcedir);
-            this.defaultroots = new ArrayList<>();
-            this.defaultroots.add(
-                    new Root(DapUtil.canonjoin(resourcedir, "testfiles"), "Test Files"));
-            this.defaultroots.add(
-                    new Root(DapUtil.canonjoin(resourcedir, "rawtestfiles"), "Raw TestFiles"));
-        }
     }
 
     //////////////////////////////////////////////////
@@ -137,12 +124,6 @@ public class D4TSServlet extends DapController
 
         addCommonHeaders(drq);
 
-        // Figure out the directory containing
-        // the files to display.
-        String dir = getResourcePath(drq, "");
-        if(dir == null)
-            throw new DapException("Cannot locate resources directory");
-
         // Generate the front page
         FrontPage front = getFrontPage(drq, cxt);
         String frontpage = front.buildPage();
@@ -161,9 +142,9 @@ public class D4TSServlet extends DapController
     @Override
     public String
     getResourcePath(DapRequest drq, String location)
-            throws IOException
+            throws DapException
     {
-        String prefix = (String) this.dapcxt.get("RESOURCEDIR");
+        String prefix = drq.getResourceRoot();
         if(prefix == null)
             throw new DapException("Cannot find location resource: " + location)
                     .setCode(DapCodes.SC_NOT_FOUND);
@@ -201,12 +182,23 @@ public class D4TSServlet extends DapController
      *
      * @param drq
      * @param cxt
-     * @return
+     * @return  FrontPage object
      */
     protected FrontPage
     getFrontPage(DapRequest drq, DapContext cxt)
             throws DapException
     {
+        if(this.defaultroots == null) {
+            // Figure out the directory containing
+            // the files to display.
+            String pageroot;
+            pageroot = getResourcePath(drq, "");
+            if(pageroot == null)
+                throw new DapException("Cannot locate resources directory");
+            this.defaultroots = new ArrayList<>();
+            this.defaultroots.add(
+                    new Root("testfiles",pageroot));
+        }
         return new FrontPage(this.defaultroots, drq);
     }
 

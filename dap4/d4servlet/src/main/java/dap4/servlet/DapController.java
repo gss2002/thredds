@@ -96,32 +96,6 @@ abstract public class DapController extends HttpServlet
 
     protected ByteOrder order = null;
     protected ChecksumMode checksummode = ChecksumMode.DAP;
-    protected String resourcedir = null;
-
-    //////////////////////////////////////////////////
-    // Provide access to the servlet context
-    // Unfortunately, Intellij + Spring is so screwed up
-    // that I cannot rely on autowiring.
-
-    protected ServletContext servlet_context = null;
-
-    // WARNING: note the name
-    public void
-    set_servlet_context(ServletContext cxt)
-    {
-        assert (this.servlet_context == null);
-        this.servlet_context = cxt;
-    }
-
-    // WARNING: note the name to avoid interference with
-    // Servlet.getServletContext
-    // Generally subclass over-ridden
-    public ServletContext
-    get_servlet_context()
-    {
-        return this.servlet_context;
-    }
-
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -162,7 +136,7 @@ abstract public class DapController extends HttpServlet
      * @throws IOException
      */
 
-    abstract public String getResourcePath(DapRequest drq, String location) throws IOException;
+    abstract public String getResourcePath(DapRequest drq, String location) throws DapException;
 
     /**
      * Get the maximum # of bytes per request
@@ -228,8 +202,6 @@ abstract public class DapController extends HttpServlet
             throws IOException
     {
         DapLog.debug("doGet(): User-Agent = " + req.getHeader("User-Agent"));
-        if(this.servlet_context == null)
-            set_servlet_context(req.getServletContext());
         if(!this.initialized) initialize();
         this.daprequest = getRequestState(req, res);
         String url = this.daprequest.getOriginalURL();
@@ -247,11 +219,8 @@ abstract public class DapController extends HttpServlet
 
         this.order = this.daprequest.getOrder();
         this.checksummode = this.daprequest.getChecksumMode();
-        this.resourcedir = this.daprequest.getResourceDir();
         this.dapcxt.put(Dap4Util.DAP4ENDIANTAG, this.order);
         this.dapcxt.put(Dap4Util.DAP4CSUMTAG, this.checksummode);
-        if(this.resourcedir != null)
-            this.dapcxt.put("RESOURCEDIR",this.resourcedir);
 
         if(url.endsWith(FAVICON)) {
             doFavicon(FAVICON, this.dapcxt);
@@ -405,7 +374,7 @@ abstract public class DapController extends HttpServlet
 
         DSP dsp = DapCache.open(realpath, cxt);
         if(dsp == null)
-            throw new IOException("No such file: " + drq.getResourcePath());
+            throw new DapException("No such file: " + drq.getResourceRoot());
         DapDataset dmr = dsp.getDMR();
         if(DUMPDMR) {
             StringWriter sw = new StringWriter();
