@@ -105,7 +105,7 @@ public class Dimension extends CDMNode implements Comparable {
    * @throws IllegalArgumentException if cant find dimension or parse error.
    */
   static public List<Dimension> makeDimensionsList(Group parentGroup, String dimString) throws IllegalArgumentException {
-
+      System.err.printf("makeDimensionsList: |%s|%n",dimString);
     List<Dimension> newDimensions = new ArrayList<>();
 
     if ((dimString == null) || (dimString.length() == 0)) { // scalar
