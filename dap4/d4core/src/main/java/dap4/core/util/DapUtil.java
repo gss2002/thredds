@@ -242,9 +242,13 @@ abstract public class DapUtil // Should only contain static methods
         path = path.replace('\\', '/');
         if(path.endsWith("/"))
             path = path.substring(0, path.length() - 1);
-        // As a last step, lowercase the drive letter, if any
-        if(hasDriveLetter(path))
+        boolean abs = (path.length() > 0 && path.charAt(0) == '/');
+        if(abs) path = path.substring(1); // temporary
+        if(DapUtil.hasDriveLetter(path)) {
+            // As a last step, lowercase the drive letter, if any
             path = path.substring(0, 1).toLowerCase() + path.substring(1);
+        } else if(abs)
+            path = "/" + path;
         return path;
     }
 
@@ -254,7 +258,7 @@ abstract public class DapUtil // Should only contain static methods
         if(path != null) {
             if(path.startsWith("/"))
                 path = path.substring(1);
-            else if(hasDriveLetter(path))
+            if(hasDriveLetter(path))
                 path = path.substring(2);
         }
         return path;
@@ -522,10 +526,11 @@ abstract public class DapUtil // Should only contain static methods
     static public boolean
     hasDriveLetter(String path)
     {
+        boolean hasdr = false;
         if(path != null && path.length() >= 2) {
-            return (DRIVELETTERS.indexOf(path.charAt(0)) >= 0 && path.charAt(1) == ':');
+            hasdr = (DRIVELETTERS.indexOf(path.charAt(0)) >= 0 && path.charAt(1) == ':');
         }
-        return false;
+        return hasdr;
     }
 
     /**

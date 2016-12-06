@@ -122,7 +122,6 @@ public class Nc4DMRCompiler
         GroupNotes gi = new GroupNotes(ncid, ncid, this.dsp);
         String[] pieces = DapUtil.canonicalpath(this.path).split("[/]");
         DapDataset g = factory.newDataset(pieces[pieces.length - 1]);
-        g.annotate(gi);
         gi.set(g);
         this.dmr = g;
         fillgroup(ncid);
@@ -166,7 +165,6 @@ public class Nc4DMRCompiler
         errcheck(ret = nc4.nc_inq_grpname(gid, namep));
         GroupNotes gi = new GroupNotes(parent, gid, this.dsp);
         DapGroup g = factory.newGroup(makeString(namep));
-        g.annotate(gi);
         gi.set(g);
         GroupNotes gp = (GroupNotes) this.dsp.find(parent, NoteSort.GROUP);
         gp.get().addDecl(g);
@@ -186,7 +184,6 @@ public class Nc4DMRCompiler
         boolean isunlimited = contains(udims, did);
         DimNotes di = new DimNotes(gid, did, this.dsp);
         DapDimension dim = factory.newDimension(name, lenp.longValue());
-        dim.annotate(di);
         di.set(dim);
         GroupNotes gp = (GroupNotes) this.dsp.find(gid, NoteSort.GROUP);
         gp.get().addDecl(dim);
@@ -258,7 +255,6 @@ public class Nc4DMRCompiler
             throw new DapException("Enum base type must be integer type");
         errcheck(ret = nc4.nc_inq_enum(ti.gid, ti.id, namep, basetypep, sizep, nmembersp));
         DapEnumeration de = factory.newEnumeration(name, DapType.lookup(base.getType().getTypeSort()));
-        de.annotate(ti);
         ti.set(de);
         ti.setEnumBaseType(basetype);
         ti.group().addDecl(de);
@@ -279,7 +275,6 @@ public class Nc4DMRCompiler
             throws DapException
     {
         DapStructure ds = factory.newStructure(name);
-        ds.annotate(ti);
         ti.set(ds);
         ti.group().addDecl(ds);
         for(int i = 0; i < nfields; i++) {
@@ -331,7 +326,6 @@ public class Nc4DMRCompiler
                 .setBaseType(baset)
                 .setContainer(container);
         field = factory.newVariable(name, baset.getType());
-        field.annotate(notes);
         notes.set(field);
         // set dimsizes
         if(dimsizes.length > 0) {
@@ -367,11 +361,9 @@ public class Nc4DMRCompiler
         switch (((DapType) xtype.node).getTypeSort()) {
         default: /* atomic */
             var = factory.newVariable(name, xtype.getType());
-            var.annotate(vi);
             break;
         case Enum:
             var = factory.newVariable(name, xtype.getType());
-            var.annotate(vi);
             break;
         case Structure:
             DapStructure st = (DapStructure) xtype.get();
@@ -413,7 +405,6 @@ public class Nc4DMRCompiler
         // We map vlen to a sequence with a single field
         // of the basetype. Field name is same as the vlen type
         DapSequence ds = factory.newSequence(vname);
-        ds.annotate(ti);
         ti.set(ds);
         ti.group().addDecl(ds);
         ti.markVlen();

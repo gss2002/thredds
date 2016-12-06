@@ -4,9 +4,14 @@
 
 package dap4.test;
 
+import dap4.core.data.DSPRegistry;
 import dap4.core.util.DapException;
 import dap4.core.util.DapUtil;
+import dap4.dap4lib.DapLog;
+import dap4.dap4lib.FileDSP;
+import dap4.servlet.DapCache;
 import dap4.servlet.DapController;
+import dap4.servlet.SynDSP;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockServletContext;
@@ -20,6 +25,7 @@ import thredds.core.DatasetManager;
 import thredds.core.TdsRequestedDataset;
 import thredds.server.dap4.Dap4Controller;
 import ucar.httpservices.HTTPUtil;
+import ucar.nc2.NetcdfFile;
 import ucar.unidata.util.test.TestDir;
 import ucar.unidata.util.test.UnitTestCommon;
 
@@ -376,6 +382,15 @@ abstract public class DapTestCommon extends UnitTestCommon
     testSetup()
     {
         DapController.TESTING = true;
+        DapCache.dspregistry.register(FileDSP.class, DSPRegistry.FIRST);
+        DapCache.dspregistry.register(SynDSP.class, DSPRegistry.FIRST);
+        // Never use HDF5
+        try {
+            NetcdfFile.iospDeRegister(ucar.nc2.jni.netcdf.Nc4Iosp.class);
+            NetcdfFile.registerIOProviderPreferred(ucar.nc2.jni.netcdf.Nc4Iosp.class, ucar.nc2.iosp.hdf5.H5iosp.class);
+        } catch (Exception e) {
+            DapLog.warn("Cannot load ucar.nc2.jni.netcdf.Nc4Iosp");
+        }
     }
 
     static protected MvcResult

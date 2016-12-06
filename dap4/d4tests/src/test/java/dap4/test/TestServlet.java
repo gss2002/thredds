@@ -146,9 +146,6 @@ public class TestServlet extends DapTestCommon
         mvcbuilder.setValidator(new TestServlet.NullValidator());
         this.mockMvc = mvcbuilder.build();
         testSetup();
-        DapCache.dspregistry.register(FileDSP.class, DSPRegistry.FIRST);
-        DapCache.dspregistry.register(SynDSP.class, DSPRegistry.FIRST);
-        //NetcdfFile.registerIOProvider("ucar.nc2.jni.netcdf.Nc4Iosp");
         if(prop_ascii)
             Generator.setASCII(true);
         TestCase.setRoots(canonjoin(getResourceRoot(), TESTINPUTDIR),

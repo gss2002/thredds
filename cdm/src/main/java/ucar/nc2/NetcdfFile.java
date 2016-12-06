@@ -132,7 +132,7 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, Closeable 
   static private org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(NetcdfFile.class);
 
   static private int default_buffersize = 8092;
-  static private ArrayList<IOServiceProvider> registeredProviders = new ArrayList<>();
+  static private List<IOServiceProvider> registeredProviders = new ArrayList<>();
   static protected boolean debugSPI = false, debugCompress = false, showRequest = false;
   static boolean debugStructureIterator = false;
   static boolean loadWarnings = false;
@@ -351,6 +351,33 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, Closeable 
   }
 
   /**
+    * Register an IOServiceProvider. A new instance will be created when one of its files is opened.
+    * This differs from the above inthat it specifically locates the target iosp and inserts
+    * the new one in front of it in order to override the target.
+    * If the target class is not present, then insert at front of the registry
+    *
+    * @param iospClass Class that implements IOServiceProvider.
+    * @param targetClass Class to override
+    * @throws IllegalAccessException if class is not accessible.
+    * @throws InstantiationException if class doesnt have a no-arg constructor.
+    * @throws ClassCastException     if class doesnt implement IOServiceProvider interface.
+    */
+   static public void registerIOProviderPreferred(Class iospClass, Class targetClass)
+           throws IllegalAccessException, InstantiationException {
+     if(iospRegistered(iospClass))
+       return; // never register twice; use must remove
+     IOServiceProvider target = null;
+     int pos = -1;
+     for(int i=0; i<registeredProviders.size();i++) {
+       target =  registeredProviders.get(i);
+       if (target.getClass() == targetClass) {pos = i; break;}
+     }
+     if(pos < 0) pos = 0;
+     IOServiceProvider spi = (IOServiceProvider) iospClass.newInstance(); // fail fast
+     registeredProviders.add(pos, spi);  // insert before target
+   }
+
+  /**
    * See if a specific IOServiceProvider is registered
    *
    * @param iospClass Class for which to search
@@ -360,6 +387,23 @@ public class NetcdfFile implements ucar.nc2.util.cache.FileCacheable, Closeable 
       if (spi.getClass() == iospClass) return true;
     }
     return false;
+  }
+
+  /**
+   * See if a specific IOServiceProvider is registered and if so, remove it.
+   *
+   * @param iospClass Class for which to search  and remove
+   * @return true if class was present
+   */
+  static public boolean iospDeRegister(Class iospClass) {
+      for (int i=0;i<registeredProviders.size();i++) {
+        IOServiceProvider spi = registeredProviders.get(i);
+        if (spi.getClass() == iospClass) {
+          registeredProviders.remove(i);
+          return true;
+        }
+      }
+      return false;
   }
 
   /**

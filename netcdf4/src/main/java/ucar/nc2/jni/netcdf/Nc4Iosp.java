@@ -81,6 +81,12 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
   static public final String JNA_PATH = "jna.library.path";
   static public final String JNA_PATH_ENV = "JNA_PATH"; // environment var
 
+  // Define reserved attributes   (see Nc4DSP)
+  static public final String UCARTAGVLEN = "_edu.ucar.isvlen";
+  static public final String UCARTAGOPAQUE = "_edu.ucar.opaque.size";
+  static public final String UCARTAGUNLIM = "_edu.ucar.isunlim";
+  static public final String UCARTAGORIGTYPE = "_edu.ucar.orig.type";
+
   static protected String DEFAULTNETCDF4LIBNAME = "netcdf";
 
   static private String jnaPath = null;
@@ -1025,6 +1031,11 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     if (dtype.isEnum()) {
       EnumTypedef enumTypedef = g.findEnumeration(utype.name);
       v.setEnumTypedef(enumTypedef);
+    } else if(dtype == DataType.OPAQUE) {
+      // Add the size (if >= 0) as an attribute
+      Array values = Array.factory(DataType.LONG, new int[]{1}, new long[]{(long)utype.size});
+      Attribute aop = new Attribute(UCARTAGOPAQUE, values);
+      v.addAttribute(aop);
     }
 
     return v;
@@ -1125,6 +1136,14 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
 
       if (typeClass == Nc4prototypes.NC_COMPOUND)
         readFields();
+    }
+
+    // Allow size override for e.g. opaque
+    public UserType
+    setSize(int size)
+    {
+      this.size = size;
+      return this;
     }
 
     DataType getEnumBaseType() {
@@ -1388,7 +1407,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
         ret = nc4.nc_inq_opaque(grpid, typeid, nameo, sizep2);
         if (ret != 0)
           throw new IOException(ret + ": " + nc4.nc_strerror(ret));
-
+        ut.setSize(sizep2.getValue().intValue());
         // doesnt seem to be any new info
         // String nameos = makeString(nameo);
         //System.out.printf("   opaque type=%d name=%s size=%d %n ",
@@ -2403,7 +2422,10 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
         UserType ut = (UserType) en.annotation();
         typid = ut.typeid;
         vinfo = new Vinfo(g4, -1, typid);
-
+    } else if(v.getDataType() == DataType.OPAQUE) {
+      typid = convertDataType(v.getDataType());
+      if (typid < 0) return; // not implemented yet
+      vinfo = new Vinfo(g4, -1, typid);
     } else {
       typid = convertDataType(v.getDataType());
       if (typid < 0) return; // not implemented yet

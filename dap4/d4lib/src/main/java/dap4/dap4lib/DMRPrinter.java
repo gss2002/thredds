@@ -7,6 +7,7 @@ package dap4.dap4lib;
 import dap4.core.ce.CEConstraint;
 import dap4.core.dmr.*;
 import dap4.core.util.*;
+import dap4.dap4lib.netcdf.Nc4DSP;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -35,9 +36,15 @@ public class DMRPrinter
     static protected final int NONAME = 2; // do not print name xml attribute
     static protected final int NONNIL = 4; // print empty xml attributes
 
-    static protected final String[] SUPPRESS = {
+    static protected final String[] GROUPSUPPRESS = {
             "_NCProperties",
             "_DAP4_Little_Endian"
+    };
+    static protected final String[] VARSUPPRESS = {
+            Nc4DSP.UCARTAGOPAQUE,
+            Nc4DSP.UCARTAGVLEN,
+            Nc4DSP.UCARTAGUNLIM,
+            Nc4DSP.UCARTAGORIGTYPE
     };
 
     //////////////////////////////////////////////////
@@ -300,6 +307,11 @@ public class DMRPrinter
                     printXMLAttribute("size", "*", flags);
                 else
                     printXMLAttribute("size", Long.toString(size), flags);
+                // See if the variable has UCARTAGUNLIM
+                DapAttribute aop = orig.findAttribute(Nc4DSP.UCARTAGUNLIM);
+                if(aop != null) {
+                    printXMLAttribute(Nc4DSP.UCARTAGUNLIM, "1", flags);
+                }
             }
             break;
 
@@ -312,6 +324,16 @@ public class DMRPrinter
             DapType basetype = var.getBaseType();
             if(basetype.isEnumType()) {
                 printXMLAttribute("enum", basetype.getTypeName(), flags);
+            } else if(basetype.isOpaqueType()) {
+                // See if the variable has UCARTAGOPAQUE
+                DapAttribute aop = var.findAttribute(Nc4DSP.UCARTAGOPAQUE);
+                if(aop != null) {
+                    Object[] values = aop.getValues();
+                    if(values.length != 1)
+                        throw new DapException("Malformed Attribute: " + Nc4DSP.UCARTAGOPAQUE);
+                    Long size = (Long) values[0];
+                    printXMLAttribute(Nc4DSP.UCARTAGOPAQUE, Long.toString(size), flags);
+                }
             }
             break;
 
@@ -395,15 +417,41 @@ public class DMRPrinter
     {
     }
 
+    static boolean suppress(DapAttribute attr)
+    {
+        if(attr.getParent().getSort() == DapSort.DATASET) {
+            for(String s : GROUPSUPPRESS) {
+                if(s.equals(attr.getShortName()))
+                    return true;
+            }
+        } else if(attr.getParent().getSort() == DapSort.VARIABLE) {
+            for(String s : VARSUPPRESS) {
+                if(s.equals(attr.getShortName()))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    // To avoid printing useless closures,
+    // compute the # of non-suppressed attributes
+    static int
+    suppresscount(Map<String,DapAttribute> attrs)
+    {
+        int truecount = 0;
+        for(Map.Entry<String,DapAttribute> entry: attrs.entrySet()) {
+            if(!suppress(entry.getValue()))
+                truecount++;
+        }
+        return truecount;
+    }
+
     void
     printAttribute(DapAttribute attr)
             throws IOException
     {
-        if(attr.getParent().getSort() == DapSort.DATASET) {
-            for(String s : SUPPRESS) {
-                if(s.equals(attr.getShortName())) return;
-            }
-        }
+        if(suppress(attr))
+            return;
         printer.marginPrint("<Attribute");
         printXMLAttribute("name", attr.getShortName(), NILFLAGS);
         DapType type = attr.getBaseType();
@@ -493,7 +541,7 @@ public class DMRPrinter
 
     static protected boolean hasMetadata(DapNode node)
     {
-        return node.getAttributes().size() > 0;
+        return suppresscount(node.getAttributes()) > 0;
     }
 
     static protected boolean hasMaps(DapVariable var)

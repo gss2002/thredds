@@ -18,7 +18,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.MalformedURLException;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.Map;
@@ -86,7 +88,18 @@ public class DapRequest
 
         // Figure out the absolute path to our resources directory
         this.resourceroot = (String)this.request.getAttribute("RESOURCEDIR");
-
+        if(this.resourceroot == null && this.servletcontext != null) {
+        try {
+            URL url = this.servletcontext.getResource(WEBINFPATH);
+            if(!url.getProtocol().equals("file"))
+                throw new DapException("Cannot locate resource root");
+            this.resourceroot = DapUtil.canonicalpath(url.getFile());
+        } catch (MalformedURLException e) {
+            this.resourceroot = null;
+        }
+        if(this.resourceroot == null)
+            throw new DapException("Cannot locate resource root");
+    }
         try {
             parse();
         } catch (IOException ioe) {

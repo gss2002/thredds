@@ -124,9 +124,7 @@ public class TestSerial extends DapTestCommon
     @Before
     public void setup() throws Exception {
         this.resourceroot = getResourceRoot();
-        // Check for windows path
-        if(!DapUtil.hasDriveLetter(this.resourceroot))
-            this.resourceroot = DapUtil.absolutize(this.resourceroot);
+        this.resourceroot = DapUtil.absolutize(this.resourceroot);
         this.datasetpath = this.resourceroot + "/" + BASELINEDIR;
         //findServer(this.datasetpath);
         //this.sourceurl = this.d4tsserver;
