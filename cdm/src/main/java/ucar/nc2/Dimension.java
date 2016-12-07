@@ -107,7 +107,9 @@ public class Dimension extends CDMNode implements Comparable {
   static public List<Dimension> makeDimensionsList(Group parentGroup, String dimString)
           throws IllegalArgumentException {
     List<Dimension> newDimensions = new ArrayList<>();
-
+    if(parentGroup == null) {
+      new Exception("YYYYY").printStackTrace() ;
+    }
     if (dimString == null) // scalar
          return newDimensions; // empty list
     dimString = dimString.trim();
