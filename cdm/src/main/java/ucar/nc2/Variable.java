@@ -1181,8 +1181,10 @@ public class Variable extends CDMNode implements VariableIF, ProxyReader, Attrib
    * @param dims      space delimited list of dimension names. may be null or "" for scalars.
    */
   public Variable(NetcdfFile ncfile, Group group, Structure parent, String shortName, DataType dtype, String dims) {
-    this(ncfile, group, parent, shortName, dtype,
-            Dimension.makeDimensionsList(group, dims));
+    this(ncfile, group, parent, shortName, dtype, (List<Dimension>)null);
+    if(group == null)
+      group = ncfile.getRootGroup();
+    setDimensions(Dimension.makeDimensionsList(group, dims));
   }
 
   /**
