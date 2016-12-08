@@ -908,9 +908,15 @@ public class CDMDSP extends AbstractDSP
 
     protected boolean isdeclfor(Dimension decl, Dimension ref)
     {
-        // First check shortname and size
-        if(!decl.getShortName().equals(ref.getShortName()))
-            return false;
+        // Check shortname (if defined)
+	boolean samename = (decl.getShortName() == null && ref.getShortName() == null);
+	if(!samename && decl.getShortName() != null)
+            samename = !decl.getShortName().equals(ref.getShortName());
+	// samename => both null or both string equals
+	if(!samename)
+	    return false;
+	// Ok, same name, or both are anonymous
+        // Check sizes
         if(decl.getLength() != ref.getLength())
             return false;
         // Make sure they are in the same group
