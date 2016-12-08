@@ -107,7 +107,7 @@ public class Nc4Cursor extends AbstractCursor
             throw new DapException("Field index out of range: " + findex);
         DapVariable field = struct.getField(findex);
         // Get VarNotes and TypeNotes
-        VarNotes fi = (VarNotes) field.annotation();
+        VarNotes fi = (VarNotes)((Nc4DSP)getDSP()).find(field);
         TypeNotes ti = fi.getBaseType();
         long elemsize = getElementSize(ti); // read only one instance
         long totalsize;
@@ -149,7 +149,8 @@ public class Nc4Cursor extends AbstractCursor
         assert (this.scheme == scheme.SEQUENCE);
         if(i < 0 || i >= getRecordCount())
             throw new ArrayIndexOutOfBoundsException("Illegal record id: " + i);
-        VarNotes vn = (VarNotes) getTemplate().annotation();
+        VarNotes vn = (VarNotes)((Nc4DSP)getDSP()).find(getTemplate());
+
         long size1 = vn.getBaseType().getSize();
         long offset = size1 * i;
         Nc4Pointer instance = getMemory();
@@ -185,7 +186,7 @@ public class Nc4Cursor extends AbstractCursor
         int rank = atomvar.getRank();
         assert slices != null && ((rank == 0 && slices.size() == 1) || (slices.size() == rank));
         // Get VarNotes and TypeNotes
-        Notes n = (Notes) this.template.annotation();
+        Notes n = ((Nc4DSP)this.dsp).find(this.template);
         Object result = null;
         long count = DapUtil.sliceProduct(slices);
         VarNotes vn = (VarNotes) n;
@@ -296,7 +297,7 @@ public class Nc4Cursor extends AbstractCursor
         assert (index != null);
         assert this.scheme == Scheme.STRUCTARRAY;
         DapVariable template = (DapVariable) getTemplate();
-        VarNotes vi = (VarNotes) template.annotation();
+        VarNotes vi = (VarNotes) ((Nc4DSP)this.dsp).find(template);
         TypeNotes ti = vi.basetype;
         Nc4Pointer mem;
         Nc4Cursor cursor = null;
@@ -332,7 +333,7 @@ public class Nc4Cursor extends AbstractCursor
         assert (index != null);
         assert this.scheme == Scheme.SEQARRAY;
         DapVariable template = (DapVariable) getTemplate();
-        VarNotes vi = (VarNotes) template.annotation();
+        VarNotes vi = (VarNotes) ((Nc4DSP)this.dsp).find(template);
         TypeNotes ti = vi.basetype;
         Nc4Pointer mem;
         Nc4Cursor cursor = null;
@@ -369,7 +370,7 @@ public class Nc4Cursor extends AbstractCursor
     getOffset()
     {
         DapVariable dv = (DapVariable) getTemplate();
-        Notes n = (Notes) dv.annotation();
+        Notes n = ((Nc4DSP)this.dsp).find(dv);
         return n.getOffset();
     }
 
@@ -377,7 +378,7 @@ public class Nc4Cursor extends AbstractCursor
     getElementSize()
     {
         DapVariable dv = (DapVariable) getTemplate();
-        Notes n = (Notes) dv.annotation();
+        Notes n = ((Nc4DSP)this.dsp).find(dv);
         return n.getSize();
     }
 
@@ -527,7 +528,7 @@ public class Nc4Cursor extends AbstractCursor
      * @return
      * @throws DapException
      */
-    static long
+    long
     computeTrueOffset(Nc4Cursor f)
             throws DapException
     {
@@ -541,7 +542,8 @@ public class Nc4Cursor extends AbstractCursor
         for(int i = 1; i < (path.size() - 1); i++) {
             current = path.get(i);
             DapVariable template = (DapVariable) current.getTemplate();
-            TypeNotes ti = (TypeNotes) template.getBaseType().annotation();
+            TypeNotes ti = (TypeNotes)((Nc4DSP)getDSP()).find(template);
+
             long size = ti.getSize();
             long offset = current.getOffset();
             long pos = 0;

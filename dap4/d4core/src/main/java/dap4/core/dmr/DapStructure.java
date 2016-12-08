@@ -5,18 +5,16 @@
 package dap4.core.dmr;
 
 import dap4.core.util.DapException;
-import dap4.core.util.DapSort;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
-DapStructure is normally used as a singleton
-type for a variable, but for consistency,
-we track it as a type rather than a variable
-and create a separate variable whose basetype points
-*/
+ * DapStructure is normally used as a singleton
+ * type for a variable, but for consistency,
+ * we track it as a type rather than a variable
+ * and create a separate variable whose basetype points
+ */
 
 public class DapStructure extends DapType
 {
@@ -32,7 +30,7 @@ public class DapStructure extends DapType
 
     public DapStructure(String name)
     {
-        super(name,TypeSort.Structure);
+        super(name, TypeSort.Structure);
     }
 
     //////////////////////////////////////////////////
@@ -54,6 +52,17 @@ public class DapStructure extends DapType
         for(int i = 0; i < fields.size(); i++) {
             DapVariable field = fields.get(i);
             if(shortname.equals(field.getShortName()))
+                return i;
+        }
+        return -1;
+    }
+
+    public int
+    indexByField(DapVariable target)
+    {
+        for(int i = 0; i < fields.size(); i++) {
+            DapVariable field = fields.get(i);
+            if(field == target)
                 return i;
         }
         return -1;
@@ -93,7 +102,6 @@ public class DapStructure extends DapType
         }
         ds.fields.add((DapVariable) newfield);
     }
-
 
 
 } // class DapStructure

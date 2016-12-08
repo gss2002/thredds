@@ -14,9 +14,9 @@ import com.sun.jna.Memory;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
-import dap4.core.data.DSP;
 import dap4.core.data.DataCursor;
 import dap4.core.dmr.DMRFactory;
+import dap4.core.dmr.DapNode;
 import dap4.core.dmr.DapType;
 import dap4.core.dmr.DapVariable;
 import dap4.core.util.DapContext;
@@ -137,20 +137,22 @@ public class Nc4DSP extends AbstractDSP
     /*package*/ void
     note(Notes note)
     {
-        if(allnotes == null) allnotesInit();
+        assert (this.allnotes != null);
         int gid = note.gid;
         int id = note.id;
         NoteSort sort = note.getSort();
-        Map<Long, Notes> sortnotes = allnotes.get(sort);
+        Map<Long, Notes> sortnotes = this.allnotes.get(sort);
         assert sortnotes != null;
         switch (sort) {
         case TYPE:
         case GROUP:
         case DIM:
+            assert sortnotes.get(id) == null;
             sortnotes.put((long) id, note);
             break;
         case VAR:
-            long gv = (((long) gid) << 32) | id;
+            long gv = Nc4Notes.getVarId((VarNotes) note);
+            assert sortnotes.get(gv) == null;
             sortnotes.put(gv, note);
             break;
         }
@@ -159,38 +161,107 @@ public class Nc4DSP extends AbstractDSP
     /*package*/ VarNotes
     findVar(int gid, int varid)
     {
-        return (VarNotes)find((((long) gid) << 32) | varid, NoteSort.VAR);
+        long gv = Nc4Notes.getVarId(gid, varid, -1);
+        return (VarNotes) find(gv, NoteSort.VAR);
     }
 
-    /*package*/ Notes
+    /*package*/ VarNotes
+    findField(int gid, int varid, int fid)
+    {
+        long gv = Nc4Notes.getVarId(gid, varid, fid);
+        return (VarNotes) find(gv, NoteSort.VAR);
+    }
+
+    public Notes
     find(long id, NoteSort sort)
     {
-        if(allnotes == null) allnotesInit();
-        Map<Long, Notes> sortnotes = allnotes.get(sort);
+        assert (this.allnotes != null);
+        Map<Long, Notes> sortnotes = this.allnotes.get(sort);
         assert sortnotes != null;
         return sortnotes.get((long) id);
     }
 
+    /*package*/ Notes
+    find(DapNode node)
+    {
+        NoteSort sort = noteSortFor(node);
+        assert (this.allnotes != null);
+        Map<Long, Notes> sortnotes = this.allnotes.get(sort);
+        assert sortnotes != null;
+        for(Map.Entry<Long, Notes> entries : sortnotes.entrySet()) {
+            Notes note = entries.getValue();
+            if(note.get() == node)
+                return note;
+        }
+        return null;
+    }
+
+    protected NoteSort
+    noteSortFor(DapNode node)
+    {
+        switch (node.getSort()) {
+        case ATOMICTYPE:
+        case STRUCTURE:
+        case SEQUENCE:
+            return NoteSort.TYPE;
+        case VARIABLE:
+            return NoteSort.VAR;
+        case GROUP:
+        case DATASET:
+            return NoteSort.GROUP;
+        case DIMENSION:
+            return NoteSort.DIM;
+        default:
+            break;
+        }
+        return null;
+    }
+
     protected void allnotesInit()
     {
-        allnotes = new HashMap<>();
+        this.allnotes = new HashMap<>();
         for(NoteSort s : NoteSort.values()) {
-            allnotes.put(s, new HashMap<Long, Notes>());
+            this.allnotes.put(s, new HashMap<Long, Notes>());
         }
-        this.note(new Nc4Notes.TypeNotes(0, NC_BYTE, this).set(DapType.INT8));
-        this.note(new TypeNotes(0, NC_CHAR, this).set(DapType.CHAR));
-        this.note(new TypeNotes(0, NC_SHORT, this).set(DapType.INT16));
-        this.note(new TypeNotes(0, NC_INT, this).set(DapType.INT32));
-        this.note(new TypeNotes(0, NC_FLOAT, this).set(DapType.FLOAT32));
-        this.note(new TypeNotes(0, NC_DOUBLE, this).set(DapType.FLOAT64));
-        this.note(new TypeNotes(0, NC_UBYTE, this).set(DapType.UINT8));
-        this.note(new TypeNotes(0, NC_USHORT, this).set(DapType.UINT16));
-        this.note(new TypeNotes(0, NC_UINT, this).set(DapType.UINT32));
-        this.note(new TypeNotes(0, NC_INT64, this).set(DapType.INT64));
-        this.note(new TypeNotes(0, NC_UINT64, this).set(DapType.UINT64));
-        this.note(new TypeNotes(0, NC_STRING, this).set(DapType.STRING));
-        for(int i=NC_BYTE;i<=NC_MAX_ATOMIC_TYPE;i++) {
-            Nc4Notes.TypeNotes tn = (Nc4Notes.TypeNotes)find(i,NoteSort.TYPE);
+        Notes n;
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_BYTE, this);
+        n.set(DapType.INT8);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_CHAR, this);
+        n.set(DapType.CHAR);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_SHORT, this);
+        n.set(DapType.INT16);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_INT, this);
+        n.set(DapType.INT32);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_FLOAT, this);
+        n.set(DapType.FLOAT32);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_DOUBLE, this);
+        n.set(DapType.FLOAT64);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_UBYTE, this);
+        n.set(DapType.UINT8);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_USHORT, this);
+        n.set(DapType.UINT16);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_UINT, this);
+        n.set(DapType.UINT32);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_INT64, this);
+        n.set(DapType.INT64);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_UINT64, this);
+        n.set(DapType.UINT64);
+        this.note(n);
+        n = Nc4Notes.factory(NoteSort.TYPE, 0, NC_STRING, this);
+        n.set(DapType.STRING);
+        this.note(n);
+        for(int i = NC_BYTE; i <= NC_MAX_ATOMIC_TYPE; i++) {
+            Nc4Notes.TypeNotes tn = (Nc4Notes.TypeNotes) find(i, NoteSort.TYPE);
             assert tn != null;
             int ret = 0;
             byte[] namep = new byte[NC_MAX_NAME + 1];
@@ -236,6 +307,7 @@ public class Nc4DSP extends AbstractDSP
                 throw new DapException("Could not load libnetcdf");
         }
         dmrfactory = new DMRFactory();
+        allnotesInit();
     }
 
     //////////////////////////////////////////////////

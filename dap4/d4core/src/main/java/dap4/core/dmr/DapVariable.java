@@ -5,6 +5,7 @@
 package dap4.core.dmr;
 
 import dap4.core.util.DapException;
+import dap4.core.util.DapSort;
 import dap4.core.util.DapUtil;
 
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ public class DapVariable extends DapNode implements DapDecl
     protected List<DapDimension> dimensions = new ArrayList<DapDimension>();
     protected List<DapMap> maps = new ArrayList<DapMap>(); // maps are ordered
     protected int checksum = 0;
+    protected int fieldindex = -1;
 
     //////////////////////////////////////////////////
     // Constructors
@@ -112,6 +114,18 @@ public class DapVariable extends DapNode implements DapDecl
     setChecksum(int csum)
     {
         this.checksum = csum;
+    }
+
+    public int
+    getFieldIndex()
+    {
+        return this.fieldindex;
+    }
+
+    public void
+    setFieldIndex(int index)
+    {
+        this.fieldindex = index;
     }
 
     @Override

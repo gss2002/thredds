@@ -7,11 +7,6 @@ import dap4.core.dmr.*;
 import dap4.core.util.DapSort;
 import dap4.core.util.DapUtil;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import static dap4.dap4lib.netcdf.DapNetcdf.*;
-
 /**
  * Note that ideally, this info should be part of the
  * Nc4DMR classes, but that would require multiple inheritance.
@@ -30,6 +25,51 @@ abstract public class Nc4Notes
     static public final int NOFIELDID = -1;
 
     //////////////////////////////////////////////////
+    // Use a factory so we can debug constructor calls
+
+    static Notes
+    factory(NoteSort ns, int g, int id, Nc4DSP dsp)
+    {
+        Notes note = null;
+        switch (ns) {
+        case TYPE:
+            note = new TypeNotes(g, id, dsp);
+            break;
+        case VAR:
+            note = new VarNotes(g, id, dsp);
+            break;
+        case DIM:
+            note = new DimNotes(g, id, dsp);
+            break;
+        case GROUP:
+            note = new GroupNotes(g, id, dsp);
+            break;
+        }
+        return note;
+    }
+
+    //////////////////////////////////////////////////
+    //Manage the compound id for variables
+
+    static public long
+    getVarId(VarNotes note)
+    {
+        return getVarId(note.gid, note.id, note.getFieldIndex());
+    }
+
+    static public long
+    getVarId(int gid, int varid, int ifid)
+    {
+        long gv = ((long)gid) << 32;
+        assert varid < 0x100000;
+        gv = gv | ((long)varid) << 20;
+        long fid = (long)ifid;
+        if(fid >= 0)
+            gv |= fid;
+        return gv;
+    }
+
+    //////////////////////////////////////////////////
     // Type Decls
 
     static public enum NoteSort
@@ -43,23 +83,19 @@ abstract public class Nc4Notes
         NoteSort sort;
         int gid;
         int id;
-        protected String name = null;
         DapNode node = null;
+        protected String name = null;
         protected Notes parent = null;
         protected TypeNotes basetype = null;
         protected long size = 0;
         protected long offset = 0;
 
-        public Notes(int gid, int id, Nc4DSP dsp)
+        protected Notes(NoteSort sort, int gid, int id, Nc4DSP dsp)
         {
+            this.sort = sort;
             this.dsp = dsp;
             this.gid = gid;
             this.id = id;
-            if(this instanceof TypeNotes) this.sort = NoteSort.TYPE;
-            else if(this instanceof VarNotes) this.sort = NoteSort.VAR;
-            else if(this instanceof GroupNotes) this.sort = NoteSort.GROUP;
-            else if(this instanceof DimNotes) this.sort = NoteSort.DIM;
-            dsp.note(this);
         }
 
         public NoteSort getSort()
@@ -76,8 +112,7 @@ abstract public class Nc4Notes
         public Notes set(DapNode node)
         {
             this.node = node;
-            node.annotate(this);
-            if(this.name != null) setName(node.getShortName());
+            if(this.name == null) setName(node.getShortName());
             return this;
         }
 
@@ -132,7 +167,7 @@ abstract public class Nc4Notes
 
         DapGroup group()
         {
-            GroupNotes g = (GroupNotes)dsp.find(gid,NoteSort.GROUP);
+            GroupNotes g = (GroupNotes) dsp.find(gid, NoteSort.GROUP);
             return (g == null ? null : g.get());
         }
 
@@ -154,9 +189,9 @@ abstract public class Nc4Notes
 
     static public class GroupNotes extends Notes
     {
-        public GroupNotes(int p, int g, Nc4DSP dsp)
+        protected GroupNotes(int p, int g, Nc4DSP dsp)
         {
-            super(p, g, dsp);
+            super(NoteSort.GROUP, p, g, dsp);
         }
 
         public DapGroup get()
@@ -173,9 +208,9 @@ abstract public class Nc4Notes
 
     static public class DimNotes extends Notes
     {
-        public DimNotes(int g, int id, Nc4DSP dsp)
+        protected DimNotes(int g, int id, Nc4DSP dsp)
         {
-            super(g, id, dsp);
+            super(NoteSort.DIM, g, id, dsp);
         }
 
         public DapDimension get()
@@ -195,9 +230,9 @@ abstract public class Nc4Notes
         public int enumbase = -1;
         public boolean isvlen = false;
 
-        public TypeNotes(int g, int id, Nc4DSP dsp)
+        protected TypeNotes(int g, int id, Nc4DSP dsp)
         {
-            super(g, id, dsp);
+            super(NoteSort.TYPE, g, id, dsp);
         }
 
         public DapType getType()
@@ -276,13 +311,9 @@ abstract public class Nc4Notes
 
     static public class VarNotes extends Notes
     {
-//            long gv = (((long) gid) << 32) | vid;
-
-        protected int fieldid = -1;
-
-        public VarNotes(int g, int v, Nc4DSP dsp)
+        protected VarNotes(int g, int v, Nc4DSP dsp)
         {
-            super(g, v, dsp);
+            super(NoteSort.VAR, g, v, dsp);
         }
 
         public VarNotes setBaseType(TypeNotes ti)
@@ -300,15 +331,10 @@ abstract public class Nc4Notes
             return (VarNotes) super.set(node);
         }
 
-        public int getFieldID()
+        public int getFieldIndex()
         {
-            return this.fieldid;
-        }
-
-        public VarNotes setFieldID(int id)
-        {
-            this.fieldid = id;
-            return this;
+            assert this.get() != null;
+            return this.get().getFieldIndex();
         }
 
         @Override
@@ -318,6 +344,4 @@ abstract public class Nc4Notes
         }
 
     }
-
-
 }

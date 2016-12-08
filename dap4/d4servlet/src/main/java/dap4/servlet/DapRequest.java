@@ -87,19 +87,23 @@ public class DapRequest
         this.servletcontext = request.getServletContext();
 
         // Figure out the absolute path to our resources directory
-        this.resourceroot = (String)this.request.getAttribute("RESOURCEDIR");
+        this.resourceroot = (String) this.request.getAttribute("RESOURCEDIR");
         if(this.resourceroot == null && this.servletcontext != null) {
-        try {
-            URL url = this.servletcontext.getResource(WEBINFPATH);
-            if(!url.getProtocol().equals("file"))
+            try {
+                URL url = this.servletcontext.getResource(WEBINFPATH);
+                if(url == null)
+                    this.resourceroot = null;
+                else {
+                    if(!url.getProtocol().equals("file"))
+                        throw new DapException("Cannot locate resource root");
+                    this.resourceroot = DapUtil.canonicalpath(url.getFile());
+                }
+            } catch (MalformedURLException e) {
+                this.resourceroot = null;
+            }
+            if(this.resourceroot == null)
                 throw new DapException("Cannot locate resource root");
-            this.resourceroot = DapUtil.canonicalpath(url.getFile());
-        } catch (MalformedURLException e) {
-            this.resourceroot = null;
         }
-        if(this.resourceroot == null)
-            throw new DapException("Cannot locate resource root");
-    }
         try {
             parse();
         } catch (IOException ioe) {

@@ -124,14 +124,17 @@ abstract public class DapNode
 
     public DapNode annotate(Object value)
     {
-        assert annotation == null;
-        annotation = value;
+        if(this == DapType.INT8) {
+            int x = 0;
+        }
+        assert this.annotation == null;
+        this.annotation = value;
         return this;
     }
 
     public Object annotation()
     {
-        return annotation;
+        return this.annotation;
     }
 
     //////////////////////////////////////////////////
@@ -310,6 +313,7 @@ abstract public class DapNode
      */
     public void setParent(DapNode parent)
     {
+        assert this.parent == null;
         assert (
                 (this.getSort() == DapSort.ENUMCONST && parent.getSort() == DapSort.ENUMERATION)
                         || parent.getSort().isa(DapSort.GROUP)
