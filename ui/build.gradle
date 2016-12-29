@@ -26,7 +26,7 @@ dependencies {
     compile libraries["guava"]
 
     compile libraries["slf4j-api"]
-    runtime libraries["slf4j-jdk14"]
+    //runtime libraries["slf4j-jdk14"]
 }
 
 //////////////////////////////////////////////////////////

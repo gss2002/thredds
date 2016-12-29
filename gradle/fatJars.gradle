@@ -127,7 +127,9 @@ configure(fatJarTasks) {
     // Transformations
     append('META-INF/spring.handlers')
     append('META-INF/spring.schemas')
-    mergeServiceFiles()
+    mergeServiceFiles {
+        exclude 'META-INF/services/javax.xml.xpath.XPathFactory'
+    }
 }
 
 // Exclude *.xml files from all fat jars except tdmFat; we need tdm's log4j2.xml to be included.

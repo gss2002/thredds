@@ -90,7 +90,7 @@ versions["slf4j"] = "1.7.7"
 
 libraries["slf4j-api"] = "org.slf4j:slf4j-api:${versions["slf4j"]}"
 
-libraries["slf4j-jdk14"] = "org.slf4j:slf4j-jdk14:${versions["slf4j"]}"
+libraries["jul-over-slf4j"] = "org.slf4j:jul-over-slf4j:${versions["slf4j"]}"
 
 libraries["jcl-over-slf4j"] = "org.slf4j:jcl-over-slf4j:${versions["slf4j"]}"
 
@@ -210,7 +210,7 @@ libraries["jaxen"] = "jaxen:jaxen:1.1.4"
 
 libraries["threddsIso"] = "EDS:threddsIso:2.2.8"
 
-libraries["aws-java-sdk-s3"] = "com.amazonaws:aws-java-sdk-s3:1.10.11"
+libraries["aws-java-sdk-s3"] = "com.amazonaws:aws-java-sdk-s3:1.10.68"
 
 //////////////////////////// Transitive dependency replacements and exclusions ////////////////////////////
 

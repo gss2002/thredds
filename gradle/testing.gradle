@@ -136,15 +136,15 @@ configure(javaProjects) {
     Project subproject = delegate as Project
 
     // Add an SLF4J binding to testRuntime, if necessary.
-    afterEvaluate {
-        if (testRuntimeHasDepNamed(subproject, "slf4j-api")) {
-            if (!testRuntimeHasDepNamed(subproject, "slf4j-jdk14") &&
-                    !testRuntimeHasDepNamed(subproject, "log4j-slf4j-impl")) {
-                logger.info "Using default binding (slf4j-jdk14) to log testing messages in '$subproject.path'."
-                dependencies.testRuntime libraries["slf4j-jdk14"]
-            }
-        }
-    }
+   // afterEvaluate {
+     //   if (testRuntimeHasDepNamed(subproject, "slf4j-api")) {
+    //        if (!testRuntimeHasDepNamed(subproject, "slf4j-jdk14") &&
+    //                !testRuntimeHasDepNamed(subproject, "log4j-slf4j-impl")) {
+    //            logger.info "Using default binding (slf4j-jdk14) to log testing messages in '$subproject.path'."
+   //             dependencies.testRuntime libraries["slf4j-jdk14"]
+      //      }
+    //    }
+   // }
 }
 
 boolean testRuntimeHasDepNamed(Project project, String depName) {
