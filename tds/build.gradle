@@ -90,8 +90,6 @@ dependencies {
     // Testing
     testCompile libraries["spring-test"]
     testCompile libraries["hamcrest-core"]
-    testCompile libraries["httpunit"]
-    
     testCompile libraries["commons-io"]
 
     // Logging
@@ -101,7 +99,7 @@ dependencies {
     runtime libraries["log4j-web"]
 }
 
-// Adds ':tds:prepareInplaceWebAppClasses', which ':it:integrationTest' depends on.
+// Adds ':tds:prepareInplaceWebAppClasses', which ':it:test' depends on.
 apply plugin: 'org.akhikhl.gretty'
 
 //test {

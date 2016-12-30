@@ -10,6 +10,7 @@ import ucar.nc2.*;
 import ucar.nc2.constants.CDM;
 import ucar.nc2.util.Misc;
 import ucar.nc2.write.Nc4Chunking;
+import ucar.nc2.write.Nc4ChunkingDefault;
 import ucar.nc2.write.Nc4ChunkingStrategy;
 import ucar.unidata.util.test.TestDir;
 
@@ -348,5 +349,15 @@ public class TestNc4Misc {
         Assert.assertEquals(orgval, val, Misc.maxReletiveError);
       }
     }
+  }
+
+  // Demonstrates GitHub issue #718: https://github.com/Unidata/thredds/issues/718
+  @Test
+  public void testCloseNc4inDefineMode() throws IOException {
+    String location = "/some/non/existent/file.nc4";  // We won't actually be creating this, so path doesn't matter.
+    Nc4Chunking chunking = Nc4ChunkingDefault.factory(Nc4Chunking.Strategy.standard, 5, true);
+
+    // Should be able to open and close file without an exception. Would fail before the bug fix in this commit.
+    try (NetcdfFileWriter writer = NetcdfFileWriter.createNew(NetcdfFileWriter.Version.netcdf4, location, chunking)) {}
   }
 }
