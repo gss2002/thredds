@@ -11,6 +11,7 @@ import dap4.core.util.*;
 import dap4.dap4lib.AbstractCursor;
 import dap4.dap4lib.LibTypeFcns;
 
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,9 +39,6 @@ public class Nc4Cursor extends AbstractCursor
             throws DapException
     {
         super(scheme, dsp, template, container);
-        if(scheme == Scheme.SEQUENCE) {
-            int x = 0;
-        }
         if(DEBUG) debug();
     }
 
@@ -100,34 +98,28 @@ public class Nc4Cursor extends AbstractCursor
     readField(int findex)
             throws DapException
     {
-        assert (this.scheme == scheme.RECORD || this.scheme == scheme.STRUCTURE);
+        // Preliminaries
         DapVariable template = (DapVariable) getTemplate();
         DapStructure struct = (DapStructure) template.getBaseType();
         if(findex < 0 || findex >= struct.getFields().size())
             throw new DapException("Field index out of range: " + findex);
         DapVariable field = struct.getField(findex);
         // Get VarNotes and TypeNotes
-        VarNotes fi = (VarNotes)((Nc4DSP)getDSP()).find(field);
+        VarNotes fi = (VarNotes) ((Nc4DSP) getDSP()).find(field);
         TypeNotes ti = fi.getBaseType();
-        long elemsize = getElementSize(ti); // read only one instance
-        long totalsize;
-        if(this.getScheme() == Scheme.RECORD) {
-            totalsize = elemsize; // Record instances act like scalars
-        } else { // Structure
-            long dimproduct = DapUtil.dimProduct(template.getDimensions());
-            totalsize = elemsize * dimproduct;
-        }
-        Nc4Cursor cursor = null;
-        TypeSort typesort = ti.getType().getTypeSort();
-        if(typesort.isAtomic()) {
-            cursor = new Nc4Cursor(Scheme.ATOMIC, (Nc4DSP) this.dsp, field, this);
-        } else if(typesort == TypeSort.Structure) {
-            cursor = new Nc4Cursor(Scheme.STRUCTARRAY, (Nc4DSP) this.dsp, field, this);
-        } else if(typesort == TypeSort.Sequence) {
-            cursor = new Nc4Cursor(Scheme.SEQARRAY, (Nc4DSP) this.dsp, field, this);
-        }
-        // as a rule, a field's memory is its parent container memory.
-        cursor.setMemory(getMemory());
+        Nc4Cursor cursor = new Nc4Cursor(schemeFor(field), (Nc4DSP) this.dsp, field, this);
+        Nc4Pointer mem = getMemory();
+        // Handle records and structures somewhat differently
+        if(this.scheme == scheme.STRUCTURE) {
+            // do nothing
+        } else if(this.getScheme() == Scheme.RECORD) {
+            if(findex != 0) // need to use the first field of the sequence
+                throw new DapException("Field index out of range: " + findex);
+            // For fields, the record memory and the field memory are the same
+            // because the record contains only 1 rank-0 field.
+        } else  //Error
+            throw new DapException("readfield expected STRUCTURE or RECORD cursor");
+        cursor.setMemory(mem);
         return cursor;
     }
 
@@ -143,21 +135,43 @@ public class Nc4Cursor extends AbstractCursor
 
     @Override
     public Nc4Cursor
-    readRecord(long i)
+    readRecord(long recno)
             throws DapException
     {
         assert (this.scheme == scheme.SEQUENCE);
-        if(i < 0 || i >= getRecordCount())
-            throw new ArrayIndexOutOfBoundsException("Illegal record id: " + i);
-        VarNotes vn = (VarNotes)((Nc4DSP)getDSP()).find(getTemplate());
-
-        long size1 = vn.getBaseType().getSize();
-        long offset = size1 * i;
-        Nc4Pointer instance = getMemory();
-        Nc4Pointer mem = instance.share(offset, size1);
+        DapVariable template = (DapVariable) getTemplate();
+        if(recno < 0 || recno >= getRecordCount())
+            throw new ArrayIndexOutOfBoundsException("Illegal record id: " + recno);
+        VarNotes vn = (VarNotes) ((Nc4DSP) getDSP()).find(template);
+        TypeNotes ti = vn.getBaseType();
+        assert (ti.isVlen());
+        DapStructure ds = (DapStructure) template.getBaseType();
+        DapVariable field = ds.getField(0);
+        DapType ftype = field.getBaseType();
+        TypeNotes fnotes = (TypeNotes) ((Nc4DSP) getDSP()).find(ftype);
+        // The memory is a vector of objects, where the object type
+        // is the type of the first field of the sequence
+        // We need to extract the recno'th object from our memory
+        Nc4Pointer record = getMemory(); // should be the vector of records
+        long recsize = getElementSize(fnotes);
+        // point to the recno element in the vector
+        record = record.share(recno * recsize, recsize);
         Nc4Cursor rec = new Nc4Cursor(Scheme.RECORD, (Nc4DSP) getDSP(), (DapVariable) getTemplate(), this);
-        rec.setMemory(mem);
-        rec.setRecordIndex(i);
+/*
+        Nc4Pointer seqvlen = getMemory();
+        long vlensize = DapNetcdf.Vlen_t.VLENSIZE;
+        Nc4Pointer recnovlen = seqvlen.share(vlensize*recno,vlensize); // recno'th vlen
+        DapNetcdf.Vlen_t vleninstance = new DapNetcdf.Vlen_t(recnovlen.p);
+        vleninstance.read(); // get the actual vlen contents for this sequence
+        Pointer vlenmem = vleninstance.p;
+        int vlencount = vleninstance.len;
+        TypeNotes fvtype = getVlenType(field);
+        long elemsize = fvtype.getSize();  // vlen.p is vector of objects of this size
+        Nc4Pointer objectvec = new Nc4Pointer(vlenmem, elemsize * vlencount);
+        // Now, we want the recno'th object in the vector
+        Nc4Pointer record = objectvec.share(elemsize * recno, elemsize);
+*/
+        rec.setMemory(record).setRecordIndex(recno);
         return rec;
     }
 
@@ -186,7 +200,7 @@ public class Nc4Cursor extends AbstractCursor
         int rank = atomvar.getRank();
         assert slices != null && ((rank == 0 && slices.size() == 1) || (slices.size() == rank));
         // Get VarNotes and TypeNotes
-        Notes n = ((Nc4DSP)this.dsp).find(this.template);
+        Notes n = ((Nc4DSP) this.dsp).find(this.template);
         Object result = null;
         long count = DapUtil.sliceProduct(slices);
         VarNotes vn = (VarNotes) n;
@@ -253,40 +267,64 @@ public class Nc4Cursor extends AbstractCursor
             throws DapException
     {
         DapVariable atomvar = (DapVariable) getTemplate();
-        // Get into memory
-        DapNetcdf nc4 = ((Nc4DSP) this.dsp).getJNI();
         DapType basetype = ti.getType();
         if(atomvar.getCount() == 0)
             return LibTypeFcns.newVector(basetype, 0);
         // Convert slices to (start,count,stride);
         int rank = atomvar.getRank();
+        List<DapDimension> dimset = atomvar.getDimensions();
+        Odometer odom = Odometer.factory(slices, dimset);
+        List<Odometer> subodoms = odom.getSubOdometers();
+        // Compute the total size of returned objects
+        long totalsize = 0;
+        for(int i = 0; i < subodoms.size(); i++) {
+            Odometer ithodom = subodoms.get(i);
+            totalsize += ithodom.totalSize();
+        }
+        DapNetcdf nc4 = ((Nc4DSP) this.dsp).getJNI();
         SizeT[] startp = new SizeT[rank];
         SizeT[] countp = new SizeT[rank];
         SizeT[] stridep = new SizeT[rank];
-        slicesToVars(slices, startp, countp, stridep);
         int ret;
-        Object result = null;
-        if(basetype.isFixedSize()) {
-            Odometer odom = Odometer.factory(slices);
-            long elemsize = ((DapType) ti.get()).getSize();
-            long memsize = count * elemsize;
-            Nc4Pointer mem = Nc4Pointer.allocate(memsize);
-            readcheck(nc4, ret = nc4.nc_get_vars(vi.gid, vi.id, startp, countp, stridep, mem.p));
-            result = getatomicdata(ti.getType(), count, elemsize, mem);
-        } else if(basetype.isStringType()) {
-            String[] ss = new String[(int) count];
-            readcheck(nc4, ret = nc4.nc_get_vars_string(vi.gid, vi.id, startp, countp, stridep, ss));
-            result = ss;
-        } else if(basetype.isOpaqueType()) {
-            Nc4Pointer mem = Nc4Pointer.allocate(count * ti.getSize());
-            readcheck(nc4, ret = nc4.nc_get_var(vi.gid, vi.id, mem.p));
-            ByteBuffer[] buf = new ByteBuffer[(int) count];
-            for(int i = 0; i < count; i++) {
-                buf[i] = mem.p.getByteBuffer(ti.getSize() * i, ti.getSize());
-            }
-            result = buf;
-        } else
-            throw new DapException("Unexpected atomic type: " + basetype);
+        long edgecount;
+        Odometer ithodom;
+        Object partialresult;
+        Object result = LibTypeFcns.newVector(basetype, totalsize);
+        int pos = 0;
+        for(int i = 0; i < subodoms.size(); i++) {
+            ithodom = subodoms.get(i);
+            edgecount = odomToEdges(ithodom, startp, countp, stridep);
+            if(basetype.isFixedSize()) {
+                long elemsize = ti.getSize();
+                long memsize = edgecount * elemsize;
+                Nc4Pointer mem = Nc4Pointer.allocate(memsize);
+                readcheck(nc4, ret = nc4.nc_get_vars(vi.gid, vi.id, startp, countp, stridep, mem.p));
+                partialresult = getatomicdata(ti.getType(), edgecount, elemsize, mem);
+            } else if(basetype.isStringType()) {
+                String[] ss = new String[(int) edgecount];
+                readcheck(nc4, ret = nc4.nc_get_vars_string(vi.gid, vi.id, startp, countp, stridep, ss));
+                partialresult = ss;
+            } else if(basetype.isOpaqueType()) {
+                long elemsize =  ti.getSize();
+                edgecount = odomToEdges(ithodom, startp, countp, stridep);
+                long memsize = edgecount * elemsize;
+                Nc4Pointer mem = Nc4Pointer.allocate(memsize);
+                try {
+                    readcheck(nc4, ret = nc4.nc_get_vars(vi.gid, vi.id, startp, countp, stridep, mem.p));
+                } catch (Error e) {
+                    int x = 0;
+                }
+                ByteBuffer[] buf = new ByteBuffer[(int) edgecount];
+                for(int j = 0; j < edgecount; j++) {
+                    buf[j] = mem.p.getByteBuffer(ti.getSize() * i, ti.getSize());
+                }
+                partialresult = buf;
+            } else
+                throw new DapException("Unexpected atomic type: " + basetype);
+            int len = Array.getLength(partialresult);
+            System.arraycopy(partialresult, 0, result, pos, len);
+            pos += len;
+        }
         return result;
     }
 
@@ -297,7 +335,7 @@ public class Nc4Cursor extends AbstractCursor
         assert (index != null);
         assert this.scheme == Scheme.STRUCTARRAY;
         DapVariable template = (DapVariable) getTemplate();
-        VarNotes vi = (VarNotes) ((Nc4DSP)this.dsp).find(template);
+        VarNotes vi = (VarNotes) ((Nc4DSP) this.dsp).find(template);
         TypeNotes ti = vi.basetype;
         Nc4Pointer mem;
         Nc4Cursor cursor = null;
@@ -333,28 +371,37 @@ public class Nc4Cursor extends AbstractCursor
         assert (index != null);
         assert this.scheme == Scheme.SEQARRAY;
         DapVariable template = (DapVariable) getTemplate();
-        VarNotes vi = (VarNotes) ((Nc4DSP)this.dsp).find(template);
+        VarNotes vi = (VarNotes) ((Nc4DSP) this.dsp).find(template);
         TypeNotes ti = vi.basetype;
         Nc4Pointer mem;
         Nc4Cursor cursor = null;
         DapNetcdf.Vlen_t[] vlen = new DapNetcdf.Vlen_t[1];
-        cursor = new Nc4Cursor(Scheme.SEQUENCE, (Nc4DSP) this.dsp, template, this);
+        // Given a seq var e.g v(d1,d2), where we have an index argument,
+        // get that object, which will be a vlen
         if(template.isTopLevel()) {
             int ret;
             DapNetcdf nc4 = ((Nc4DSP) this.dsp).getJNI();
-            SizeT[] sizes = indexToSizes(index);
-            readcheck(nc4, ret = nc4.nc_get_var1(vi.gid, vi.id, sizes, vlen));
+            SizeT[] extents = indexToSizes(index);
+            // read te index't vlen
+            readcheck(nc4, ret = nc4.nc_get_var1(vi.gid, vi.id, extents, vlen));
         } else {// field of a structure instance or record
             long pos = index.index();
             if(pos < 0 || pos >= template.getCount())
                 throw new IndexOutOfBoundsException("read: " + index);
-            // We need to extract the vlen for this field
-            Nc4Pointer pp = ((Nc4Cursor) getContainer()).getMemory();
+            // The memory for a sequence field is the vector of vlen objects.
+            // We need to extract the index'th vlen for this field
+            Nc4Pointer pp = getMemory(); // should be the vector
             int vlensize = DapNetcdf.Vlen_t.VLENSIZE;
+            // point to the index'th element in the vector
             pp = pp.share(pos * vlensize, vlensize);
+            // convert to a Vlen_T object
             vlen[0] = new DapNetcdf.Vlen_t(pp.p);
             vlen[0].read();
         }
+        // At this point, vlen[0] is the index'th vlen
+        // Construct a sequence cursor whose memory is the memory of the vlen
+        // (which is the vector of records)
+        cursor = new Nc4Cursor(Scheme.SEQUENCE, (Nc4DSP) this.dsp, template, this);
         cursor.setRecordCount(vlen[0].len);
         long memsize = ti.getSize() * cursor.getRecordCount();
         mem = new Nc4Pointer(vlen[0].p, memsize);
@@ -370,7 +417,7 @@ public class Nc4Cursor extends AbstractCursor
     getOffset()
     {
         DapVariable dv = (DapVariable) getTemplate();
-        Notes n = ((Nc4DSP)this.dsp).find(dv);
+        Notes n = ((Nc4DSP) this.dsp).find(dv);
         return n.getOffset();
     }
 
@@ -378,7 +425,7 @@ public class Nc4Cursor extends AbstractCursor
     getElementSize()
     {
         DapVariable dv = (DapVariable) getTemplate();
-        Notes n = ((Nc4DSP)this.dsp).find(dv);
+        Notes n = ((Nc4DSP) this.dsp).find(dv);
         return n.getSize();
     }
 
@@ -478,15 +525,19 @@ public class Nc4Cursor extends AbstractCursor
         return result;
     }
 
-    static void
-    slicesToVars(List<Slice> slices, SizeT[] startp, SizeT[] countp, SizeT[] stridep)
+    static long
+    odomToEdges(Odometer odom, SizeT[] startp, SizeT[] countp, SizeT[] stridep)
     {
-        for(int i = 0; i < slices.size(); i++) {
+        assert !odom.isMulti();
+        int rank = odom.rank();
+        List<Slice> slices = odom.getSlices();
+        for(int i = 0; i < rank; i++) {
             Slice slice = slices.get(i);
             startp[i] = new SizeT(slice.getFirst());
             countp[i] = new SizeT(slice.getCount());
             stridep[i] = new SizeT(slice.getStride());
         }
+        return DapUtil.sliceProduct(slices);
     }
 
     static public void
@@ -542,9 +593,9 @@ public class Nc4Cursor extends AbstractCursor
         for(int i = 1; i < (path.size() - 1); i++) {
             current = path.get(i);
             DapVariable template = (DapVariable) current.getTemplate();
-            TypeNotes ti = (TypeNotes)((Nc4DSP)getDSP()).find(template);
+            VarNotes vi = (VarNotes) ((Nc4DSP) getDSP()).find(template);
 
-            long size = ti.getSize();
+            long size = vi.getSize();
             long offset = current.getOffset();
             long pos = 0;
             switch (current.getScheme()) {
@@ -571,7 +622,7 @@ public class Nc4Cursor extends AbstractCursor
      * Given a cursor, get a list of "containing" cursors
      * with the following constraints.
      * 1. the first element in the path is a top-level variable.
-     * 2. the remaining elements are the enclosing compound types
+     * 2. the remaining elements are the enclosing compound variables
      * 3. the last element is the incoming cursor.
      *
      * @param cursor
@@ -593,6 +644,7 @@ public class Nc4Cursor extends AbstractCursor
                 assert cursor.getTemplate().isTopLevel();
                 break;
             }
+            assert next.getTemplate().getSort() == DapSort.VARIABLE;
             cursor = next;
         }
         return path;
@@ -606,6 +658,26 @@ public class Nc4Cursor extends AbstractCursor
             cursor = (Nc4Cursor) cursor.getContainer();
         }
         return cursor.getMemory();
+    }
+
+    /**
+     * If the basetype is sequence (=> isVlen()),
+     * then return the type of the first field of this sequence.
+     * Otherwise return null.
+     *
+     * @return the type of the first field
+     */
+    public TypeNotes
+    getVlenType(DapVariable v)
+    {
+        DapType t = v.getBaseType();
+        if(t.getSort() != DapSort.SEQUENCE
+                || ((DapSequence) t).getFields().size() != 1)
+            throw new IllegalArgumentException(t.getFQN());
+        DapSequence ds = (DapSequence) t;
+        DapVariable f0 = ds.getField(0);
+        DapType f0type = f0.getBaseType();
+        return (TypeNotes) ((Nc4DSP) this.dsp).find(f0type);
     }
 
     protected void

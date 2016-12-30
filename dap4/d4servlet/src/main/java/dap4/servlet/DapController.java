@@ -25,6 +25,7 @@ import java.lang.reflect.Field;
 import java.net.MalformedURLException;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
+import java.util.Map;
 
 abstract public class DapController extends HttpServlet
 {
@@ -221,6 +222,13 @@ abstract public class DapController extends HttpServlet
         this.checksummode = this.daprequest.getChecksumMode();
         this.dapcxt.put(Dap4Util.DAP4ENDIANTAG, this.order);
         this.dapcxt.put(Dap4Util.DAP4CSUMTAG, this.checksummode);
+        // Transfer all other queries
+        Map<String,String> queries = this.daprequest.getQueries();
+        for(Map.Entry<String,String> entry: queries.entrySet()) {
+           if(this.dapcxt.get(entry.getKey()) == null)  {
+               this.dapcxt.put(entry.getKey(),entry.getValue());
+           }
+        }
 
         if(url.endsWith(FAVICON)) {
             doFavicon(FAVICON, this.dapcxt);
@@ -377,13 +385,8 @@ abstract public class DapController extends HttpServlet
             throw new DapException("No such file: " + drq.getResourceRoot());
         DapDataset dmr = dsp.getDMR();
         if(DUMPDMR) {
-            StringWriter sw = new StringWriter();
-            PrintWriter stream = new PrintWriter(sw);
-            DMRPrinter printer = new DMRPrinter(dmr, stream);
-            printer.print();
-            stream.close();
-            sw.close();
-            System.err.println(sw.toString());
+            printDMR(dmr);
+            System.err.println(printDMR(dmr));
             System.err.flush();
         }
 
@@ -405,7 +408,7 @@ abstract public class DapController extends HttpServlet
         sw.close();
 
         String sdmr = sw.toString();
-        if(DEBUG)
+        if(DEBUG || DUMPDMR)
             System.err.println("Sending: Data DMR:\n" + sdmr);
 
         // Wrap the outputstream with a Chunk writer
@@ -542,6 +545,22 @@ abstract public class DapController extends HttpServlet
             dmr.addAttribute(a);
         }
     }
+
+    static public String
+    printDMR(DapDataset dmr)
+    {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        DMRPrinter printer = new DMRPrinter(dmr, pw).printReserved(true);
+        try {
+            printer.print();
+            pw.close();
+            sw.close();
+        } catch (IOException e) {
+        }
+        return sw.toString();
+    }
+
 }
 
 

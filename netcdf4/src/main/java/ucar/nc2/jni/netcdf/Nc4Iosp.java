@@ -52,7 +52,6 @@ import ucar.nc2.write.Nc4Chunking;
 import ucar.nc2.write.Nc4ChunkingDefault;
 import ucar.unidata.io.RandomAccessFile;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -81,10 +80,15 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
   static public final String JNA_PATH = "jna.library.path";
   static public final String JNA_PATH_ENV = "JNA_PATH"; // environment var
 
+  static public final String UCARTAG = "ucar";
+  static public final String TRANSLATECONTROL = UCARTAG + ".translate";
+  static public final String TRANSLATE_NONE = "none";
+  static public final String TRANSLATE_NC4 = "nc4";
+
   // Define reserved attributes   (see Nc4DSP)
-  static public final String UCARTAGVLEN = "_edu.ucar.isvlen";
   static public final String UCARTAGOPAQUE = "_edu.ucar.opaque.size";
-  static public final String UCARTAGUNLIM = "_edu.ucar.isunlim";
+  // Not yet implemented
+  static public final String UCARTAGVLEN = "_edu.ucar.isvlen";
   static public final String UCARTAGORIGTYPE = "_edu.ucar.orig.type";
 
   static protected String DEFAULTNETCDF4LIBNAME = "netcdf";
@@ -205,6 +209,8 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
   private Map<Group, Integer> groupHash = new HashMap<>();     // group -> nc4 grpid
   private Nc4Chunking chunker = new Nc4ChunkingDefault();
   private boolean isEos = false;
+
+  private boolean markreserved = false;
 
   //////////////////////////////////////////////////
   // Constructor(s)
@@ -1032,10 +1038,9 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
       EnumTypedef enumTypedef = g.findEnumeration(utype.name);
       v.setEnumTypedef(enumTypedef);
     } else if(dtype == DataType.OPAQUE) {
-      // Add the size (if >= 0) as an attribute
-      Array values = Array.factory(DataType.LONG, new int[]{1}, new long[]{(long)utype.size});
-      Attribute aop = new Attribute(UCARTAGOPAQUE, values);
-      v.addAttribute(aop);
+      if(this.markreserved) {
+        v.annotate(UCARTAGOPAQUE,utype.size);
+      }
     }
 
     return v;
@@ -2419,7 +2424,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
 
     } else if(v.getDataType().isEnum()) {
         EnumTypedef en = v.getEnumTypedef();
-        UserType ut = (UserType) en.annotation();
+        UserType ut = (UserType) en.annotation(UserType.class);
         typid = ut.typeid;
         vinfo = new Vinfo(g4, -1, typid);
     } else if(v.getDataType() == DataType.OPAQUE) {
@@ -2523,7 +2528,7 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
         UserType ut = new UserType(
                 g4.grpid, typeid, name, en.getBaseType().getSize(), basetype, (long) emap.size(), NC_ENUM);
         userTypes.put(typeid, ut);
-        en.annotate(ut);  // dont know the varid yet
+        en.annotate(UserType.class,ut);  // dont know the varid yet
     }
 
   /////////////////////////////////////
@@ -3310,6 +3315,13 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
     updateDimensions(ncfile.getRootGroup());
   }
 
+  public Nc4Iosp
+  setAddReserved(boolean tf)
+  {
+     this.markreserved = tf;
+     return this;
+  }
+
   @Override
   public void setFill(boolean fill) {
     this.fill = fill;
@@ -3348,6 +3360,26 @@ public class Nc4Iosp extends AbstractIOServiceProvider implements IOServiceProvi
   static public long
   getNativeAddr(int pos, ByteBuffer buf) {
     return (NativeLong.SIZE == (Integer.SIZE / 8) ? buf.getInt(pos) : buf.getLong(pos));
+  }
+
+  @Override
+  public Object sendIospMessage(Object message) {
+     if(message != null && message instanceof Map) {
+       Map map = (Map)message;
+          // See if we can extract some controls
+       for(Object okey: map.keySet()) {
+          String key = okey.toString();
+          if(key.equalsIgnoreCase(TRANSLATECONTROL)) {
+            String value = map.get(okey).toString();
+            if(value.equalsIgnoreCase(TRANSLATE_NONE)) {
+              this.markreserved = false;
+            } else if(value.equalsIgnoreCase(TRANSLATE_NC4)) {
+              this.markreserved = true;
+            }// else ignore
+          }// else ignore
+       }
+     }
+     return null;
   }
 
 }

@@ -31,6 +31,7 @@ abstract public class D4DSP extends AbstractDSP
     // Constants
 
     static public boolean DEBUG = false;
+    static public boolean DUMPDMR = false;
 
     static protected final String DAPVERSION = "4.0";
     static protected final String DMRVERSION = "1.0";
@@ -70,19 +71,9 @@ abstract public class D4DSP extends AbstractDSP
     {
         DapDataset dmr = parseDMR(document);
 
-        if(DEBUG) {
-            StringWriter sw = new StringWriter();
-            PrintWriter pw = new PrintWriter(sw);
-            DMRPrinter printer = new DMRPrinter(dmr, pw);
-            try {
-                printer.print();
-                pw.close();
-                sw.close();
-            } catch (IOException e) {
-            }
-            ;
+        if(DEBUG || DUMPDMR) {
             System.err.println("+++++++++++++++++++++");
-            System.err.println(sw.toString());
+            System.err.println(dmr);
             System.err.println("+++++++++++++++++++++");
         }
         build(dmr, serialdata, order);

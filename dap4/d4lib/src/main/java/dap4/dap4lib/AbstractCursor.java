@@ -8,6 +8,7 @@ import dap4.core.data.DSP;
 import dap4.core.data.DataCursor;
 import dap4.core.dmr.DapNode;
 import dap4.core.dmr.DapStructure;
+import dap4.core.dmr.DapType;
 import dap4.core.dmr.DapVariable;
 import dap4.core.util.DapException;
 import dap4.core.util.DapSort;
@@ -261,5 +262,24 @@ abstract public class AbstractCursor implements DataCursor
     {
         this.template = template;
         return this;
+    }
+
+
+    //////////////////////////////////////////////////
+    // Utilities
+
+    static public Scheme
+    schemeFor(DapVariable field)
+    {
+        DapType ftype = field.getBaseType();
+        Scheme scheme = null;
+        boolean isscalar = field.getRank() == 0;
+        if(ftype.getTypeSort().isAtomic())
+            scheme = Scheme.ATOMIC;
+        else {
+            if(ftype.getTypeSort().isStructType()) scheme = Scheme.STRUCTARRAY;
+            else if(ftype.getTypeSort().isSeqType()) scheme = Scheme.SEQARRAY;
+        }
+        return scheme;
     }
 }

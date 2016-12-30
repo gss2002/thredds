@@ -52,6 +52,7 @@ abstract public class DapTestCommon extends UnitTestCommon
     static public final String CONSTRAINTTAG = "dap4.ce";
     static public final String ORDERTAG = "ucar.littleendian";
     static public final String NOCSUMTAG = "ucar.nochecksum";
+    static public final String TRANSLATETAG = "ucar.translate";
 
     static final String D4TESTDIRNAME = "d4tests";
 

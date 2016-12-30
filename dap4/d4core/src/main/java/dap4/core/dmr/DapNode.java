@@ -67,6 +67,12 @@ abstract public class DapNode
      */
     protected Map<String, DapAttribute> attributes = new HashMap<>();
 
+    /**
+     * XML Attributes attached to this node. Used to pass reserved extra
+     * info to the client.
+     */
+    protected Map<String, String> xmlattributes = new HashMap<>();
+
     //////////////////////////////////////////////////
     // Constructors
 
@@ -113,28 +119,27 @@ abstract public class DapNode
     }
 
     //////////////////////////////////////////////////
-    // Annotatation
+    // Annotatations
 
     /* Purpose of annotation is to (sort of) get around
        single inheritance by allowing a node to store
        a single arbitrary piece of state.
     */
 
-    protected Object annotation = null;
+    protected Map<Object,Object> annotations = null;
 
-    public DapNode annotate(Object value)
+    public DapNode annotate(Object id, Object value)
     {
-        if(this == DapType.INT8) {
-            int x = 0;
-        }
-        assert this.annotation == null;
-        this.annotation = value;
+        if(this.annotations == null)
+            this.annotations = new HashMap<>();
+        assert this.annotations.get(id) == null;
+        this.annotations.put(id,value);
         return this;
     }
 
-    public Object annotation()
+    public Object annotation(Object id)
     {
-        return this.annotation;
+        return this.annotations.get(id);
     }
 
     //////////////////////////////////////////////////
@@ -197,6 +202,35 @@ abstract public class DapNode
         return this.attributes.get(name);
     }
 
+    //////////////////////////////////////////////////
+    // XML attributes
+
+    public synchronized Map<String,String>
+    getXMLAttributes()
+    {
+	return this.xmlattributes;
+    }
+
+    public synchronized void
+    addXMLAttribute(String name, String value)
+            throws DapException
+    {
+        if(this.xmlattributes == null)
+            this.xmlattributes = new HashMap<String, String>();
+        if(this.xmlattributes.containsKey(name))
+            throw new DapException("Attempt to add duplicate XML attribute: " + name);
+        this.xmlattributes.put(name,value);
+    }
+
+    public synchronized void
+    removeXMLAttribute(String name)
+            throws DapException
+    {
+        if(this.xmlattributes == null)
+            return;
+        if(this.xmlattributes.containsKey(name))
+            this.xmlattributes.remove(name);
+    }
 
     //////////////////////////////////////////////////
     // Get/set
@@ -351,7 +385,7 @@ abstract public class DapNode
     public String getFQN()
     {
         if(this.fqn == null)
-            this.fqn = computefqn(null);
+            this.fqn = computefqn();
         assert (fqn.length() > 0 || this.getSort() == DapSort.DATASET);
         return this.fqn;
     }
@@ -365,31 +399,17 @@ abstract public class DapNode
      */
 
     public List<DapNode>
-    getPath(DapNode wrt)
+    getPath()
     {
         List<DapNode> path = new ArrayList<DapNode>();
         DapNode current = this;
         for(; ; ) {
             path.add(0, current);
-            if(wrt != null && current == wrt)
-                break;
             current = current.getParent();
             if(current == null)
                 break;
         }
         return path;
-    }
-
-    /**
-     * Compute the path upto and including the root
-     *
-     * @return ordered list of parent nodes
-     */
-
-    public List<DapNode>
-    getPath()
-    {
-        return getPath(null);
     }
 
     /**
@@ -440,13 +460,11 @@ abstract public class DapNode
      * Compute the FQN of this node
      */
     public String
-    computefqn(DapNode wrt)
+    computefqn()
     {
-        List<DapNode> path = getPath(wrt);
+        List<DapNode> path = getPath(); // excludes root/wrt
         StringBuilder fqn = new StringBuilder();
         DapNode parent = path.get(0);
-        if(wrt != null)
-            fqn.append(wrt.getFQN());
         for(int i = 1; i < path.size(); i++) {   // start at 1 to skip root
             DapNode current = path.get(i);
             // Depending on what parent is, use different delimiters

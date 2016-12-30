@@ -42,16 +42,11 @@ public class Nc4DSP extends AbstractDSP
     // Constants
 
     static public final boolean DEBUG = false;
+    static public final boolean DUMPDMR = false;
 
     static String PATHSUFFIX = "/src/data";
 
     static public String[] EXTENSIONS = new String[]{".nc", ".hdf5"};
-
-    // Define reserved attributes
-    static public final String UCARTAGVLEN = "_edu.ucar.isvlen";
-    static public final String UCARTAGOPAQUE = "_edu.ucar.opaque.size";
-    static public final String UCARTAGUNLIM = "_edu.ucar.isunlim";
-    static public final String UCARTAGORIGTYPE = "_edu.ucar.orig.type";
 
     static final Pointer NC_NULL = Pointer.NULL;
     static final int NC_FALSE = 0;
@@ -98,7 +93,8 @@ public class Nc4DSP extends AbstractDSP
         {
             try {
                 Pointer ps = p.share(offset, size);
-                return new Nc4Pointer(ps, size);
+                Nc4Pointer newp = new Nc4Pointer(ps, size);
+                return newp;
             } catch (IndexOutOfBoundsException e) {
                 return null;
             }
@@ -108,6 +104,13 @@ public class Nc4DSP extends AbstractDSP
         toString()
         {
             return String.format("0x%016x/%d", Pointer.nativeValue(this.p), this.size);
+        }
+
+        static public boolean
+        validate(Nc4Pointer mem, long require)
+        {
+            if(mem == null || mem.p == null || mem.size == 0) return false;
+            return (mem.size > require);
         }
     }
 
@@ -181,7 +184,7 @@ public class Nc4DSP extends AbstractDSP
         return sortnotes.get((long) id);
     }
 
-    /*package*/ Notes
+    /*package*/Notes
     find(DapNode node)
     {
         NoteSort sort = noteSortFor(node);
@@ -342,6 +345,11 @@ public class Nc4DSP extends AbstractDSP
             // Compile the DMR
             Nc4DMRCompiler dmrcompiler = new Nc4DMRCompiler(this, ncid, dmrfactory);
             setDMR(dmrcompiler.compile());
+            if(DEBUG || DUMPDMR) {
+                System.err.println("+++++++++++++++++++++");
+                System.err.println(printDMR(getDMR()));
+                System.err.println("+++++++++++++++++++++");
+            }
             return this;
         } catch (Exception t) {
             t.printStackTrace();

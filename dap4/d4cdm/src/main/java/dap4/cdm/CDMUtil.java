@@ -20,7 +20,6 @@ import ucar.nc2.NetcdfFile;
 import ucar.nc2.Variable;
 import ucar.nc2.dataset.NetcdfDataset;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -228,7 +227,17 @@ abstract public class CDMUtil
     static public boolean
     hasVLEN(Variable v)
     {
-        for(Dimension dim : v.getDimensions()) {
+        return containsVLEN(v.getDimensions());
+    }
+
+    /**
+     * Test if any dimension is variable length
+     */
+    static public boolean
+    containsVLEN(List<Dimension> dimset)
+    {
+        if(dimset == null) return false;
+        for(Dimension dim : dimset) {
             if(dim.isVariableLength())
                 return true;
         }
@@ -463,7 +472,6 @@ abstract public class CDMUtil
                 throw new UnsupportedOperationException(); // same as other cdm
         }
     }*/
-
     static public String
     getChecksumString(byte[] checksum)
     {
@@ -570,10 +578,10 @@ abstract public class CDMUtil
         int[] shape = new int[rank];
         int[] indices = new int[rank];
         for(int i = 0; i < rank; i++) {
-            indices[i] = (int)d4.get(i);
-            shape[i] = (int)d4.getSize(i);
+            indices[i] = (int) d4.get(i);
+            shape[i] = (int) d4.getSize(i);
         }
-        ucar.ma2.Index cdm =  ucar.ma2.Index.factory(shape);
+        ucar.ma2.Index cdm = ucar.ma2.Index.factory(shape);
         cdm.set(indices);
         return cdm;
     }

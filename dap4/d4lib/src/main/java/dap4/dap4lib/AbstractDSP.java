@@ -13,13 +13,14 @@ import dap4.core.dmr.DapNode;
 import dap4.core.dmr.DapVariable;
 import dap4.core.dmr.parser.Dap4Parser;
 import dap4.core.dmr.parser.Dap4ParserImpl;
-import dap4.core.util.DapException;
 import dap4.core.util.DapContext;
 import dap4.core.util.DapException;
 import dap4.core.util.DapUtil;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,8 +47,11 @@ abstract public class AbstractDSP implements DSP
     static protected final String DMRVERSION = "1.0";
     static protected final String DMRNS = "http://xml.opendap.org/ns/DAP/4.0#";
 
-    //////////////////////////////////////////////////
-    // Instance variables
+    // Define reserved attributes
+    static public final String UCARTAGVLEN = "_edu.ucar.isvlen";
+    static public final String UCARTAGOPAQUE = "_edu.ucar.opaque.size";
+    static public final String UCARTAGORIGTYPE = "_edu.ucar.orig.type";
+
 
     protected DapContext context = null;
     protected DapDataset dmr = null;
@@ -306,6 +310,21 @@ abstract public class AbstractDSP implements DSP
                     this.order = (ByteOrder.LITTLE_ENDIAN);
             }
         }
+    }
+
+    static public String
+    printDMR(DapDataset dmr)
+    {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        DMRPrinter printer = new DMRPrinter(dmr, pw).printReserved(true);
+        try {
+            printer.print();
+            pw.close();
+            sw.close();
+        } catch (IOException e) {
+        }
+        return sw.toString();
     }
 
 }

@@ -352,11 +352,11 @@ public class DapRequest
         return queries.get(name.toLowerCase());
     }
 
-    /*public String getResourcePath()
-            throws IOException
+    public Map<String, String>
+    getQueries()
     {
-        return getResourcePath(getDatasetPath());
-    } */
+        return this.queries;
+    }
 
     public String getResourcePath(String relpath)
             throws IOException

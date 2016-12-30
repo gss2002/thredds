@@ -17,6 +17,7 @@ import java.util.Map;
  * and specifically all enumeration declarations
  * as specific objects denoting a type.
  * Structures and Sequence are specifically excluded
+ * WARNING: these DapType instances have a fake parent Dataset group
  */
 
 public class DapType extends DapNode implements DapDecl
@@ -43,6 +44,8 @@ public class DapType extends DapNode implements DapDecl
     // Non-primitives
     static public final DapType STRUCTURE;
     static public final DapType SEQUENCE;
+
+    static protected DapDataset pseudoroot = new DapDataset("");
 
     /**
      * Define a map from the Atomic Type Sort to the
@@ -95,6 +98,12 @@ public class DapType extends DapNode implements DapDecl
 
         typemap.put(TypeSort.Structure, DapType.STRUCTURE);
         typemap.put(TypeSort.Sequence, DapType.SEQUENCE);
+
+	for(Map.Entry<TypeSort,DapType> entry: typemap.entrySet()) {
+        entry.getValue().setDataset(pseudoroot);
+        entry.getValue().setParent(pseudoroot);
+	}
+
     }
 
     //////////////////////////////////////////////////

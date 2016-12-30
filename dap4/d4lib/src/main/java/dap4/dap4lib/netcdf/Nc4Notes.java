@@ -60,10 +60,10 @@ abstract public class Nc4Notes
     static public long
     getVarId(int gid, int varid, int ifid)
     {
-        long gv = ((long)gid) << 32;
+        long gv = ((long) gid) << 32;
         assert varid < 0x100000;
-        gv = gv | ((long)varid) << 20;
-        long fid = (long)ifid;
+        gv = gv | ((long) varid) << 20;
+        long fid = (long) ifid;
         if(fid >= 0)
             gv |= fid;
         return gv;
@@ -87,8 +87,12 @@ abstract public class Nc4Notes
         protected String name = null;
         protected Notes parent = null;
         protected TypeNotes basetype = null;
-        protected long size = 0;
         protected long offset = 0;
+        // For most types, there is only one size,
+        // but for vlen/sequence, there are two sizes:
+        //  (1) the record size and (2) the instance size (= |vlen_t|);
+        protected long size = 0;
+        protected long recordsize = 0;
 
         protected Notes(NoteSort sort, int gid, int id, Nc4DSP dsp)
         {
@@ -132,12 +136,6 @@ abstract public class Nc4Notes
             return this.parent;
         }
 
-        public Notes setSize(long size)
-        {
-            this.size = size;
-            return this;
-        }
-
         public long getOffset()
         {
             return this.offset;
@@ -152,6 +150,23 @@ abstract public class Nc4Notes
         public long getSize()
         {
             return this.size;
+        }
+
+        public Notes setSize(long size)
+        {
+            this.size = size;
+            return this;
+        }
+
+        public long getRecordSize()
+        {
+            return this.recordsize;
+        }
+
+        public Notes setRecordSize(long size)
+        {
+            this.recordsize = size;
+            return this;
         }
 
         public Notes setBaseType(TypeNotes t)
@@ -180,8 +195,12 @@ abstract public class Nc4Notes
                 buf.append("name=");
                 buf.append(name);
             }
-            buf.append("node=");
+            buf.append(" node=");
             buf.append(this.node != null ? this.node.getShortName() : "null");
+            if(this.basetype != null)      {
+                buf.append(" type=");
+                buf.append(this.node.getShortName());
+            }
             buf.append("}");
             return buf.toString();
         }
@@ -262,6 +281,8 @@ abstract public class Nc4Notes
         public TypeNotes setEnumBaseType(int bt)
         {
             this.enumbase = bt;
+            TypeNotes btt = (TypeNotes)this.dsp.find(bt,NoteSort.TYPE);
+            setSize(btt.getSize());
             return this;
         }
 
@@ -275,6 +296,11 @@ abstract public class Nc4Notes
             return getType().getTypeSort().isEnumType();
         }
 
+        public boolean isSeq()
+        {
+            return getType().getTypeSort().isSeqType();
+        }
+
         public boolean isCompound()
         {
             return getType().getTypeSort().isCompoundType();
@@ -283,12 +309,6 @@ abstract public class Nc4Notes
         public boolean isVlen()
         {
             return this.isvlen;
-        }
-
-        public TypeNotes setCompoundSize(long size)
-        {
-            super.setSize(size);
-            return this;
         }
 
         public TypeNotes markVlen()

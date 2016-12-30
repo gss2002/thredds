@@ -15,7 +15,6 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
     //////////////////////////////////////////////////
     // Constants
 
-    static final public long VARIABLELENGTH = -1;
     static final public long UNDEFINED = -2;
 
     //////////////////////////////////////////////////
@@ -24,6 +23,8 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
     protected long size = UNDEFINED;
 
     protected boolean isshared = false;
+
+    protected boolean isunlimited = false;
 
     //////////////////////////////////////////////////
     // Constructors
@@ -37,7 +38,7 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
     {
         this();
         setShortName(name);
-        this.isshared  = (name != null);
+        this.isshared = (name != null);
     }
 
     public DapDimension(String name, long size)
@@ -57,8 +58,8 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
 
     public long getSize()
     {
-	if(size == UNDEFINED) 
-	    throw new IllegalStateException("Undefined dimension size");
+        if(size == UNDEFINED)
+            throw new IllegalStateException("Undefined dimension size");
         return size;
     }
 
@@ -77,12 +78,15 @@ public class DapDimension extends DapNode implements DapDecl, Cloneable
         this.isshared = tf;
     }
 
-/*
-    public boolean isVariableLength()
+    public boolean isUnlimited()
     {
-        return size == VARIABLELENGTH;
+        return this.isunlimited;
     }
-*/
+
+    public void setUnlimited(boolean tf)
+    {
+        this.isunlimited = tf;
+    }
 
     //////////////////////////////////////////////////
     // Clone Interface

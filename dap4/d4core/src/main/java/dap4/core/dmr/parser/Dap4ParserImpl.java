@@ -184,6 +184,27 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
         return event;
     }
 
+    /**
+     * add any reserved xml attributes to a node unchanged
+     */
+    void
+    passReserved(XMLAttributeMap map, DapNode node)
+            throws ParseException
+    {
+	try {
+           DapAttribute attr = null;
+           for(Map.Entry<String, SaxEvent> entry : map.entrySet()) {
+                SaxEvent event = entry.getValue();
+		String key = entry.getKey();
+		String value = event.value;
+		if(isReserved(key))
+		    node.addXMLAttribute(key,value);
+           }
+       } catch (DapException de) {
+           throw new ParseException(de);
+       }
+    }
+
     // Attribute map utilities
     SaxEvent
     peek(XMLAttributeMap map, String name)
@@ -423,6 +444,7 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
         this.root.setDapVersion(Float.toString(ndapversion));
         this.root.setDMRVersion(Float.toString(ndmrversion));
         this.root.setDataset(this.root);
+        passReserved(attrs, this.root);
         scopestack.push(this.root);
     }
 
@@ -442,16 +464,18 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
 
     @Override
     void
-    entergroup(SaxEvent name)
+    entergroup(XMLAttributeMap attrs)
             throws ParseException
     {
         if(debug) report("entergroup");
+        SaxEvent name = pull(attrs, "name");
+        if(isempty(name))
+            throw new ParseException("Empty group name");
         try {
-            if(isempty(name))
-                throw new ParseException("Empty group name");
             DapGroup parent = getGroupScope();
             DapGroup group;
             group = new DapGroup(name.value);
+            passReserved(attrs, group);
             parent.addDecl(group);
             scopestack.push(group);
         } catch (DapException de) {
@@ -493,6 +517,7 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
             }
             DapEnumeration dapenum = null;
             dapenum = new DapEnumeration(name.value, basedaptype);
+            passReserved(attrs, dapenum);
             DapGroup parent = getGroupScope();
             parent.addDecl(dapenum);
             scopestack.push(dapenum);
@@ -566,21 +591,15 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
         }
         DapDimension dim = null;
         try {
-
             dim = new DapDimension(name.value, lvalue);
+	    passReserved(attrs,dim);
             dim.setShared(true);
             DapGroup parent = getGroupScope();
             parent.addDecl(dim);
-
             scopestack.push(dim);
-        } catch (
-                DapException de
-                )
-
-        {
+        } catch (DapException de) {
             throw new ParseException(de);
         }
-
     }
 
     @Override
@@ -640,11 +659,12 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
 
     @Override
     void
-    enteratomicvariable(SaxEvent open, SaxEvent name)
+    enteratomicvariable(SaxEvent open, XMLAttributeMap attrs)
             throws ParseException
     {
         if(debug) report("enteratomicvariable");
         try {
+            SaxEvent name = pull(attrs,"name");
             if(isempty(name))
                 throw new ParseException("Atomicvariable: Empty dimension reference name");
             String typename = open.name;
@@ -655,6 +675,7 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
             DapVariable var = null;
             // Do type substitutions
             var = new DapVariable(name.value, basetype);
+            passReserved(attrs, var);
             // Look at the parent scope
             DapNode parent = scopestack.peek();
             if(parent == null)
@@ -730,6 +751,7 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
                 throw new ParseException("EnumVariable: no such enum: " + name.value);
             DapVariable var = null;
             var = new DapVariable(name.value, target);
+            passReserved(attrs, var);
             // Look at the parent scope
             DapNode parent = scopestack.peek();
             if(parent == null)
@@ -814,16 +836,18 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
 
     @Override
     void
-    enterstructurevariable(SaxEvent name)
+    enterstructurevariable(XMLAttributeMap attrs)
             throws ParseException
     {
         if(debug) report("enterstructurevariable");
+        SaxEvent name = pull(attrs,"name");
         if(isempty(name))
             throw new ParseException("Structure: Empty structure name");
         try {
             DapStructure type = null;
             DapVariable var = null;
             type = new DapStructure(name.value);
+            passReserved(attrs, type);
             var = new DapVariable(name.value, type);
             // Look at the parent scope
             DapNode parent = scopestack.peek();
@@ -860,16 +884,18 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
 
     @Override
     void
-    entersequencevariable(SaxEvent name)
+    entersequencevariable(XMLAttributeMap attrs)
             throws ParseException
     {
         if(debug) report("entersequencevariable");
+        SaxEvent name = pull(attrs,"name");
         if(isempty(name))
             throw new ParseException("Sequence: Empty sequence name");
         try {
             DapVariable var = null;
             DapType type = null;
             type = new DapSequence(name.value);
+            passReserved(attrs, type);
             var = new DapVariable(name.value, type);
             // Look at the parent scope
             DapNode parent = scopestack.peek();
@@ -1148,17 +1174,24 @@ public class Dap4ParserImpl extends Dap4BisonParser implements Dap4Parser
         case Sequence:
             ((DapStructure) t).addField(field);
             field.setParent(instance);
-            t.setParent(instance.getGroup());
             break;
         default:
             assert false : "Container cannot be atomic variable";
         }
     }
 
-
     void report(String action)
     {
         getDebugStream().println("ACTION: " + action);
         getDebugStream().flush();
+    }
+
+    static boolean
+    isReserved(String name)
+    {
+	for(String tag: RESERVEDTAGS) {
+	    if(name.startsWith(tag)) return true;
+	}
+	return false;
     }
 }

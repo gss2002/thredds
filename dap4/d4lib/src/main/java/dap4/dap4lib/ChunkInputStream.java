@@ -145,6 +145,13 @@ public class ChunkInputStream extends InputStream
             String dmr = new String(dmr8, DapUtil.UTF8);
             // Clean it up
             dmr = dmr.trim();
+            // Make sure it has trailing \r\n"
+            if(dmr.endsWith("\r\n")) {
+                // do nothing
+            } else if(dmr.endsWith("\n"))
+                dmr = dmr.substring(0,dmr.length()-2) + "\r\n";
+            else
+                dmr = dmr + "\r\n";
 
             // Figure out the endian-ness of the response
             this.remoteorder = (flags & DapUtil.CHUNK_LITTLE_ENDIAN) == 0 ? ByteOrder.BIG_ENDIAN

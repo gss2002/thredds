@@ -13,8 +13,7 @@ import dap4.core.util.DapException;
 import dap4.core.util.DapUtil;
 
 import static dap4.dap4lib.netcdf.DapNetcdf.*;
-import static dap4.dap4lib.netcdf.Nc4DSP.EXTENSIONS;
-import static dap4.dap4lib.netcdf.Nc4DSP.Nc4Pointer;
+import static dap4.dap4lib.netcdf.Nc4DSP.*;
 import static dap4.dap4lib.netcdf.Nc4Notes.*;
 
 
@@ -31,7 +30,6 @@ public class Nc4DMRCompiler
     // Define reserved attributes
     static public final String UCARTAGVLEN = Nc4DSP.UCARTAGVLEN;
     static public final String UCARTAGOPAQUE = Nc4DSP.UCARTAGOPAQUE;
-    static public final String UCARTAGUNLIM = Nc4DSP.UCARTAGUNLIM;
 
     static final Pointer NC_NULL = Pointer.NULL;
     static final int NC_FALSE = 0;
@@ -139,6 +137,13 @@ public class Nc4DMRCompiler
             builddim(gid, dimid, udims);
         }
         int[] typeids = getUserTypes(gid);
+        for(int i=0;i<typeids.length;i++) {
+            for(int j = 0; j < i; j++) {
+                 if(typeids[i] == typeids[j])
+                     assert false;
+            }
+        }
+
         for(int typeid : typeids) {
             buildusertype(gid, typeid);
         }
@@ -185,16 +190,12 @@ public class Nc4DMRCompiler
         int len = lenp.intValue();
         boolean isunlimited = contains(udims, did);
         DapDimension dim = factory.newDimension(name, lenp.longValue());
+        dim.setUnlimited(isunlimited);
         DimNotes di = (DimNotes)Nc4Notes.factory(NoteSort.DIM,gid, did, this.dsp);
         di.set(dim);
         this.dsp.note(di);
         GroupNotes gp = (GroupNotes) this.dsp.find(gid, NoteSort.GROUP);
         gp.get().addDecl(dim);
-        if(isunlimited) {
-            DapAttribute ultag = factory.newAttribute(UCARTAGUNLIM, DapType.INT8);
-            ultag.setValues(new Object[]{(Byte) (byte) 1});
-            dim.addAttribute(ultag);
-        }
         if(trace)
             System.out.printf("Nc4DSP: dimension: %s size=%d%n", name, dim.getSize());
     }
@@ -281,6 +282,7 @@ public class Nc4DMRCompiler
     {
         DapStructure ds = factory.newStructure(name);
         ti.set(ds);
+        this.dsp.note(ti);
         ti.group().addDecl(ds);
         for(int i = 0; i < nfields; i++) {
             buildfield(ti, i, ds);
@@ -291,7 +293,7 @@ public class Nc4DMRCompiler
         SizeTByReference nfieldsp = new SizeTByReference();
         byte[] namep = new byte[NC_MAX_NAME + 1];
         errcheck(ret = nc4.nc_inq_compound(ti.gid, ti.id, namep, sizep, nfieldsp));
-        ti.setCompoundSize(sizep.longValue());
+        ti.setSize(sizep.longValue());
         assert len == sizep.longValue();
     }
 
@@ -392,9 +394,7 @@ public class Nc4DMRCompiler
         }
         // Now, if this is of type opaque, tag it with the size
         if(xtype.isOpaque()) {
-            DapAttribute sizetag = factory.newAttribute(UCARTAGOPAQUE, DapType.INT64);
-            sizetag.setValues(new Object[]{(long) xtype.getSize()});
-            var.addAttribute(sizetag);
+            var.addXMLAttribute(UCARTAGOPAQUE,Long.toString(xtype.getSize()));
         }
         // fill in any attributes
         String[] attnames = getAttributes(gid, vid);
@@ -409,25 +409,30 @@ public class Nc4DMRCompiler
             throws DapException
     {
         int ref;
-        // We map vlen to a sequence with a single field
-        // of the basetype. Field name is same as the vlen type
+        // We map vlen to a sequence with a single field of the
+        // basetype of the vlen. Field name is same as the vlen type.
+        // So we need to build two things:
+        // 1. a Sequence object
+        // 2. a Field
         DapSequence ds = factory.newSequence(vname);
         ti.set(ds);
+        this.dsp.note(ti);
         ti.group().addDecl(ds);
         ti.markVlen();
         TypeNotes fieldtype = (TypeNotes) this.dsp.find(basetypeid, NoteSort.TYPE);
         if(fieldtype == null)
             throw new DapException("Undefined vlen basetype: " + basetypeid);
         VarNotes fieldnotes = makeField(ti, 0, vname, fieldtype, 0, new int[0]);
-        DapVariable field = fieldnotes.get();
-        field.setParent(ds);
         // Annotate to indicate that this came from a vlen
-        DapAttribute tag = factory.newAttribute(UCARTAGVLEN, DapType.INT8);
-        tag.setValues(new Object[]{(Byte) (byte) 1});
-        ds.addAttribute(tag);
+        ds.addXMLAttribute(UCARTAGVLEN,"1");
+
+        // Annotate to indicate that the original type name
+        ds.addXMLAttribute(UCARTAGORIGTYPE,ds.getFQN());
+
         // Finally, extract the size of the structure, which is the same
         // as the size of the singleton field
-        ti.setCompoundSize(fieldtype.getSize());
+        ti.setRecordSize(fieldtype.getSize());
+        ti.setSize(DapNetcdf.Vlen_t.VLENSIZE);
     }
 
     protected void
@@ -625,8 +630,7 @@ public class Nc4DMRCompiler
         if(isenumtype(base))
             base = enumbasetype(base);
         Object valuelist = getRawAttributeValues(base, count, gid, vid, name);
-        Object[] values = new Object[count];
-        values = convert(count, valuelist, base);
+        Object[] values = convert(count, valuelist, base);
         return values;
     }
 
@@ -855,19 +859,4 @@ public class Nc4DMRCompiler
         errcheck(ret = nc4.nc_inq_grpname_full(t.gid, lenp, namep));
         return makeString(namep);
     }
-
-    protected DapAttribute
-    originAttr(DapStructure type)
-    {
-        String fullname = type.getFQN();
-        if(!fullname.endsWith("/"))
-            fullname = fullname + "/";
-        fullname = fullname + type.getShortName();
-        DapAttribute orig
-                = factory.newAttribute(Nc4DSP.UCARTAGORIGTYPE,
-                DapType.STRING);
-        orig.setValues(new String[]{fullname});
-        return orig;
-    }
-
 }

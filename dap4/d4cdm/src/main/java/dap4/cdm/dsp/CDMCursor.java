@@ -288,22 +288,5 @@ public class CDMCursor extends AbstractCursor
         return this;
     }
 
-    //////////////////////////////////////////////////
-    // Utilities
-
-    static /*package*/ Scheme
-    schemeFor(DapVariable field)
-    {
-        DapType ftype = field.getBaseType();
-        Scheme scheme = null;
-        boolean isscalar = field.getRank() == 0;
-        if(ftype.getTypeSort().isAtomic())
-            scheme = Scheme.ATOMIC;
-        else {
-            if(ftype.getTypeSort().isStructType()) scheme = Scheme.STRUCTARRAY;
-            else if(ftype.getTypeSort().isSeqType()) scheme = Scheme.SEQARRAY;
-        }
-        return scheme;
-    }
 
 }

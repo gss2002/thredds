@@ -46,6 +46,7 @@ public class DapAttribute extends DapNode
 
     public void setNamespaceList(List<String> list)
     {
+        if(list == null) return;
         namespaceList.clear();
         for(String ns : list) {
             addNamespace(ns);

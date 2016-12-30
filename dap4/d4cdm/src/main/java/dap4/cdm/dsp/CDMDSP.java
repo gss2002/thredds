@@ -39,6 +39,7 @@ public class CDMDSP extends AbstractDSP
     // Constants
 
     static protected final boolean DEBUG = false;
+    static protected final boolean DUMPCDL = true;
 
     static protected final Class NC4CLASS = ucar.nc2.jni.netcdf.Nc4Iosp.class;
 
@@ -86,16 +87,16 @@ public class CDMDSP extends AbstractDSP
     // package access
 
     // Variable map
-    NodeMap<Variable, DapVariable> varmap = new NodeMap<>();
+    protected NodeMap<Variable, DapVariable> varmap = new NodeMap<>();
 
     // Variable <-> DapStructure (basetype) map; compound types only
-    NodeMap<Variable, DapStructure> compoundmap = new NodeMap<>();
+    protected NodeMap<Variable, DapStructure> compoundmap = new NodeMap<>();
 
     // Map Variable <-> DapSequence vlen type
-    NodeMap<Variable, DapSequence> vlenmap = new NodeMap<>();
+    protected NodeMap<Variable, DapSequence> vlenmap = new NodeMap<>();
 
     // Map All other kinds of CDMNode <-> DapNode
-    NodeMap<CDMNode, DapNode> nodemap = new NodeMap<>();
+    protected NodeMap<CDMNode, DapNode> nodemap = new NodeMap<>();
 
     //////////////////////////////////////////////////
     // Constructor(s)
@@ -200,19 +201,6 @@ public class CDMDSP extends AbstractDSP
         return this.ncdfile;
     }
 
-    /**
-     * Lookup a dapnode in the dap nodemap.
-     *
-     * @return The corresponding CDMNode or null
-     */
-/*
-    public CDMNode
-    getCDMNode(DapNode dapnode)
-    {
-        return this.nodemap.get(dapnode);
-    }
-*/
-
     //////////////////////////////////////////////////
     // Nodemap Management
 
@@ -301,7 +289,7 @@ public class CDMDSP extends AbstractDSP
         if(getDMR() != null)
             return;
         try {
-            if(DEBUG) {
+            if(DUMPCDL) {
                 System.out.println("writecdl:");
                 this.ncdfile.writeCDL(System.out, false);
                 System.out.flush();
@@ -315,7 +303,7 @@ public class CDMDSP extends AbstractDSP
             if(index >= 0)
                 name = name.substring(index + 1, name.length());
             // Initialize the root dataset node
-            setDMR((DapDataset) dmrfactory.newDataset(name).annotate(this.ncdfile));
+            setDMR((DapDataset) dmrfactory.newDataset(name).annotate(NetcdfDataset.class, this.ncdfile));
             // Map the CDM root group to this group
             recordNode(this.ncdfile.getRootGroup(), getDMR());
             getDMR().setBase(DapUtil.canonicalpath(this.ncdfile.getLocation()));
@@ -362,21 +350,23 @@ public class CDMDSP extends AbstractDSP
         }
         // Create decls in dap group for vlen induced Sequences
         // Do this before building compound types
-                for(Variable cdmvar : cdmgroup.getVariables()) {
-                    buildseqtypes(cdmvar);
-                }
+        for(Variable cdmvar0 : cdmgroup.getVariables()) {
+            Variable cdmvar = CDMUtil.unwrap(cdmvar0);
+            buildseqtypes(cdmvar);
+        }
         // Create decls in dap group for Compound Types
-        for(Variable cdmvar : cdmgroup.getVariables()) {
+        for(Variable cdmvar0 : cdmgroup.getVariables()) {
+            Variable cdmvar = CDMUtil.unwrap(cdmvar0);
             if(cdmvar.getDataType() != DataType.STRUCTURE
                     && cdmvar.getDataType() != DataType.SEQUENCE)
                 continue;
             DapStructure struct = buildcompoundtype(cdmvar, dapgroup);
-            dapgroup.addDecl(struct);
         }
 
         // Create decls in dap group for Variables
-        for(Variable cdmvar : cdmgroup.getVariables()) {
-            DapNode newvar = buildvariable(cdmvar, dapgroup);
+        for(Variable cdmvar0 : cdmgroup.getVariables()) {
+            Variable cdmvar = CDMUtil.unwrap(cdmvar0);
+            DapNode newvar = buildvariable(cdmvar, dapgroup, cdmvar.getDimensions());
         }
         // Create decls in dap group for subgroups
         for(Group subgroup : cdmgroup.getGroups()) {
@@ -394,6 +384,8 @@ public class CDMDSP extends AbstractDSP
     builddim(Dimension cdmdim)
             throws DapException
     {
+        if(cdmdim.isVariableLength())
+            throw new DapException("* dimensions not supported");
         DapDimension dapdim = null;
         long cdmsize = dapsize(cdmdim);
         String name = cdmdim.getShortName();
@@ -406,15 +398,14 @@ public class CDMDSP extends AbstractDSP
             // be multiple anonymous dimension objects
             // the same size. So, just go ahead and create
             // multiple instances.
-            dapdim = (DapDimension) dmrfactory.newDimension(null, 0);
-            if(cdmdim.isVariableLength())
-                dapdim.setSize(DapDimension.VARIABLELENGTH);
-            else
-                dapdim.setSize(cdmsize);
+            dapdim = (DapDimension) dmrfactory.newDimension(null, cdmsize);
             getDMR().addDecl(dapdim);
         } else { // Non anonymous; create in current group
             dapdim = (DapDimension) dmrfactory.newDimension(name, cdmsize);
             dapdim.setShared(true);
+            if(cdmdim.isUnlimited()) {
+                dapdim.setUnlimited(true);
+            }
             Group cdmparent = cdmdim.getGroup();
             DapGroup dapparent = (DapGroup) this.nodemap.get(cdmparent);
             assert dapparent != null;
@@ -476,13 +467,11 @@ public class CDMDSP extends AbstractDSP
         for(CDMNode node : fields) {
             Variable cdmfield = (Variable) node;
             List<Dimension> dimset = cdmfield.getDimensions();
-            boolean vlen = vlenDimset(dimset);
             // Recurse on any nested compound types
             if(cdmfield.getDataType() == DataType.STRUCTURE
                     || cdmfield.getDataType() == DataType.SEQUENCE) {
                 DapStructure fieldstruct = buildcompoundtype(cdmfield, struct);
             }
-            //if(vlen) {DapSequence vlenseq = buildseqtype(cdmfield);}
         }
         // Add the fields to this compound type
         for(CDMNode node : fields) {
@@ -493,88 +482,72 @@ public class CDMDSP extends AbstractDSP
                 basetype = CDMTypeFcns.cdmtype2daptype(cdmfield.getDataType());
                 break;
             case STRUCTURE:
-                basetype = compoundmap.get(cdmfield);// since no forward references
-                break;
             case SEQUENCE:
-                basetype = vlenmap.get(cdmfield);
+                basetype = compoundmap.get(cdmfield);// since no forward references
                 break;
             }
             // build the field variable
-            DapVariable dapfield = buildvariable(cdmfield, struct);
+            List<Dimension> fielddims = cdmfield.getDimensions();
+            DapVariable dapfield;
+            if(CDMUtil.hasVLEN(cdmfield)) {
+                // Get the fake sequence associated with this vlen
+                DapSequence seq = vlenmap.get(cdmfield);
+                List<Dimension> coredims = getCoreDimset(fielddims);
+                // We need to build a variable whose basetype is the
+                // fake sequence rather than the cdmfield type
+                // First, build a variable using the existing cdmfield
+                dapfield = buildvariable(cdmfield, struct, coredims);
+                // Now modify it to use the fake sequence
+                dapfield.setBaseType(seq);
+            } else {
+                dapfield = buildvariable(cdmfield, struct, fielddims);
+            }
             struct.addField(dapfield);
         }
         return struct;
     }
 
     protected DapVariable
-    buildvariable(Variable cdmvar, DapNode parent)
-            throws DapException
-    {
-        cdmvar = CDMUtil.unwrap(cdmvar);
-        List<Dimension> cdmdims = cdmvar.getDimensions();
-        return buildvariable(cdmvar, cdmdims, parent);
-    }
-
-    protected DapVariable
-    buildvariable(Variable cdmbasevar, List<Dimension> cdmdims, DapNode parent)
+    buildvariable(Variable cdmbasevar, DapNode parent, List<Dimension> cdmdims)
             throws DapException
     {
         DapVariable dapvar = null;
         CDMSort sort = cdmbasevar.getSort();
-        /* If this var has a variable length last dimension,
-           then we must create a sequence type for it */
-        if(vlenDimset(cdmdims)) {
-            // Create the sequence using the dimensions of the variable
-            // and the variable as the sequence field.
-            dapvar = buildseqvar(cdmbasevar, cdmdims);
-            builddimrefs(dapvar, fixeddims(cdmdims));
-        } else {
-            switch (sort) {
-            case VARIABLE:
-                switch (cdmbasevar.getDataType()) {
-                case ENUM1:
-                case ENUM2:
-                case ENUM4:
-                    dapvar = buildenumvar(cdmbasevar);
-                    break;
-                case OPAQUE:
-                    dapvar = buildopaquevar(cdmbasevar);
-                    break;
-                case STRING:
-                    dapvar = buildstringvar(cdmbasevar);
-                    break;
-                case STRUCTURE:
-                case SEQUENCE:
-                    assert false : "Internal error"; // How could this ever happen?
-                    break;
-                default:
-                    dapvar = buildatomicvar(cdmbasevar, parent);
-                }
-                builddimrefs(dapvar, cdmdims);
+        switch (sort) {
+        case VARIABLE:
+            switch (cdmbasevar.getDataType()) {
+            default:
+                dapvar = buildatomicvar(cdmbasevar, parent);
+                break;
+            case ENUM1:
+            case ENUM2:
+            case ENUM4:
+                dapvar = buildenumvar(cdmbasevar);
+                break;
+            case OPAQUE:
+                dapvar = buildopaquevar(cdmbasevar);
+                break;
+            case STRING:
+                dapvar = buildstringvar(cdmbasevar);
                 break;
             case STRUCTURE:
-                dapvar = buildstructvar(cdmbasevar);
-                builddimrefs(dapvar, cdmdims);
-                break;
             case SEQUENCE:
-            default:
-                assert false : "Internal Error";
-            }
-        }
-        if(parent != null) {
-            switch (parent.getSort()) {
-            case GROUP:
-            case DATASET:
-                ((DapGroup) parent).addDecl(dapvar);
+                assert false : "Internal error"; // How could this ever happen?
                 break;
-            case SEQUENCE:
-            case STRUCTURE:
-                dapvar.setParent(parent);
-                break;
-            default:
-                assert (false) : "Internal error";
+
             }
+            builddimrefs(dapvar, cdmdims);
+            break;
+        case STRUCTURE:
+            dapvar = buildstructvar(cdmbasevar);
+            builddimrefs(dapvar, cdmdims);
+            break;
+        case SEQUENCE:
+        default:
+            assert false : "Internal Error";
         }
+        if(parent != null)
+            addToParent(parent, dapvar);
         return dapvar;
     }
 
@@ -589,6 +562,16 @@ public class CDMDSP extends AbstractDSP
         DapVariable dapvar = (DapVariable) dmrfactory.newVariable(cdmvar.getShortName(), basetype);
         recordVar(cdmvar, dapvar);
         buildattributes(dapvar, cdmvar.getAttributes());
+        if(CDMUtil.hasVLEN(cdmvar)) {
+            // Get the fake sequence associated with this vlen
+            DapSequence seq = vlenmap.get(cdmvar);
+            List<Dimension> coredims = getCoreDimset(cdmvar.getDimensions());
+            // We need to build a variable whose basetype is the
+            // fake sequence rather than the cdmfield type
+            // First, build a variable using the existing cdmfield
+            // Now modify it to use the fake sequence
+            dapvar.setBaseType(seq);
+        }
         return dapvar;
     }
 
@@ -600,6 +583,10 @@ public class CDMDSP extends AbstractDSP
         DapVariable dapvar = (DapVariable) dmrfactory.newVariable(cdmvar.getShortName(), DapType.OPAQUE);
         recordVar(cdmvar, dapvar);
         buildattributes(dapvar, cdmvar.getAttributes());
+        Object osize = cdmvar.annotation(UCARTAGOPAQUE);
+        if(osize != null) {
+            dapvar.addXMLAttribute(UCARTAGOPAQUE, osize.toString());
+        }
         return dapvar;
     }
 
@@ -638,26 +625,6 @@ public class CDMDSP extends AbstractDSP
         return dapvar;
     }
 
-
-    protected DapVariable
-    buildseqvar(Variable cdmvar, List<Dimension> cdmdims)
-            throws DapException
-    {
-        // Create the sequence using the dimensions of the variable
-        // and the variable as the sequence field.
-        DapSequence seq = vlenmap.get(cdmvar);
-        assert seq != null;
-        cdmvar = CDMUtil.unwrap(cdmvar);
-        DapVariable dapvar = dmrfactory.newVariable(cdmvar.getShortName(), seq);
-        // For purposes of lookup, we need to map cdmvar to the sequence typed var
-        // so we need to remove any previous mapping and replace it.
-        DapVariable prev = varmap.get(cdmvar);
-        assert prev != null;
-        varmap.remove(cdmvar,prev);
-        recordVar(cdmvar,dapvar);
-        return dapvar;
-    }
-
     protected DapVariable
     buildstructvar(Variable cdmvar)
             throws DapException
@@ -690,13 +657,16 @@ public class CDMDSP extends AbstractDSP
             throws DapException
     {
         cdmvar = CDMUtil.unwrap(cdmvar);
+        assert (CDMUtil.hasVLEN(cdmvar));
+        DataType dt = cdmvar.getDataType();
+        DapType daptype = CDMTypeFcns.cdmtype2daptype(dt);
         DapSequence seq = (DapSequence) dmrfactory.newSequence(cdmvar.getShortName());
-        recordSeq(cdmvar, seq);
         // fill DapSequence with a single field; note that the dimensions
         // are elided because they will attach to the sequence variable,
         // not the field
-        DapVariable field = buildvariable(cdmvar, null, seq);
+        DapVariable field = dmrfactory.newVariable(cdmvar.getShortName(), daptype);
         seq.addField(field);
+        recordSeq(cdmvar, seq);
         return seq;
     }
 
@@ -706,6 +676,7 @@ public class CDMDSP extends AbstractDSP
      *
      * @param cdmvar variable to walk
      */
+
     protected void
     buildseqtypes(Variable cdmvar)
             throws DapException
@@ -880,22 +851,6 @@ public class CDMDSP extends AbstractDSP
     //////////////////////////////////////////////////
     // Utilities
 
-    // break off the non-vlen dimset
-    protected List<Dimension>
-    fixeddims(List<Dimension> cdmdims)
-    {
-        List<Dimension> fixeddims = new ArrayList<>();
-        for(int i = 0; i < cdmdims.size(); i++) {
-            Dimension cd = cdmdims.get(i);
-            if(cd.isVariableLength()) {
-                assert (i == cdmdims.size() - 1);
-                break;
-            }
-            fixeddims.add(cd);
-        }
-        return fixeddims;
-    }
-
     /**
      * Unfortunately, the CDM Iosp does not
      * actually use the declared enums. Rather,
@@ -983,7 +938,7 @@ public class CDMDSP extends AbstractDSP
     protected long
     dapsize(Dimension cdmdim)
     {
-        if(cdmdim.isVariableLength()) return DapDimension.VARIABLELENGTH;
+        assert (!cdmdim.isVariableLength());
         return (long) cdmdim.getLength();
     }
 
@@ -1117,7 +1072,7 @@ public class CDMDSP extends AbstractDSP
             throws DapException
     {
         try {
-            NetcdfFile ncfile = NetcdfFile.open(location, canceltask);
+            NetcdfFile ncfile = NetcdfFile.open(location, -1, canceltask, getContext());
             return ncfile;
         } catch (DapException de) {
             if(DEBUG)
@@ -1133,23 +1088,31 @@ public class CDMDSP extends AbstractDSP
     //////////////////////////////////////////////////
     // Utilities
 
-    static boolean
-    vlenDimset(List<Dimension> dimset)
+    /**
+     * Strip vlen dimensions from a set of dimensions
+     *
+     * @param dimset
+     * @return subset of dimset with (trailing) vlen removed
+     * @throws DapException
+     */
+    static List<Dimension>
+    getCoreDimset(List<Dimension> dimset)
             throws DapException
     {
-
-        if(dimset == null || dimset.size() == 0) return false;
+        if(dimset == null) return null;
+        List<Dimension> core = new ArrayList<>();
         int pos = -1;
+        int count = 0;
         for(int i = 0; i < dimset.size(); i++) {
             if(dimset.get(i).isVariableLength()) {
                 pos = i;
-                break;
-            }
+                count++;
+            } else
+                core.add(dimset.get(i));
         }
-        if(pos < 0) return false;
-        if(pos != dimset.size() - 1)
-            throw new DapException("(*) Dimension in other than last place not supported");
-        return true;
+        if((pos != dimset.size() - 1) || count > 1)
+            throw new DapException("Unsupported use of (*) Dimension");
+        return core;
     }
 
     /**
@@ -1166,6 +1129,25 @@ public class CDMDSP extends AbstractDSP
         if(attrname.equals("_Unsigned"))
             return true;
         return false;
+    }
+
+    protected void
+    addToParent(DapNode parent, DapVariable dapvar)
+            throws DapException
+    {
+        assert (parent != null);
+        switch (parent.getSort()) {
+        case GROUP:
+        case DATASET:
+            ((DapGroup) parent).addDecl(dapvar);
+            break;
+        case SEQUENCE:
+        case STRUCTURE:
+            dapvar.setParent(parent);
+            break;
+        default:
+            assert (false) : "Internal error";
+        }
     }
 
 }

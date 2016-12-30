@@ -47,12 +47,13 @@ public class Slice
 
     // Define a set of slices indicating the canonical scalar set
     static public List<Slice> SCALARSLICES;
+    static public Slice SCALARSLICE;
 
     static {
         try {
-            Slice scalarslice = new Slice(0, 1, 1, 1).finish();
+            SCALARSLICE = new Slice(0, 1, 1, 1).finish();
             SCALARSLICES = new ArrayList<Slice>();
-            SCALARSLICES.add(scalarslice);
+            SCALARSLICES.add(SCALARSLICE);
         } catch (DapException de) {
             SCALARSLICES = null;
         }
@@ -396,7 +397,21 @@ public class Slice
         return target.getFirst() + i * target.getStride();
     }
 
+    public List<Slice>
+    getSubSlices()
+    {
+        List<Slice> list = new ArrayList<>();
+        list.add(this);
+        return list;
+    }
 
+    public Slice
+    getSubSlice(int i)
+    {
+        if(i != 0)
+            throw new IndexOutOfBoundsException();
+        return this;
+    }
 
 
 }

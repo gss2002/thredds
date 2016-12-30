@@ -133,6 +133,10 @@ public class DapVariable extends DapNode implements DapDecl
     toString()
     {
         StringBuilder s = new StringBuilder();
+        if(this.getBaseType() != null) {
+            s.append(this.getBaseType().toString());
+            s.append("|");
+        }
         s.append(super.toString());
         for(int i = 0; i < getRank(); i++) {
             DapDimension dim = dimensions.get(i);

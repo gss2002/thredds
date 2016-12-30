@@ -4,8 +4,6 @@
 
 package dap4.core.util;
 
-import dap4.core.util.DapException;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,7 +19,7 @@ public class MultiSlice extends Slice
     //////////////////////////////////////////////////
     // Instance Variables
 
-    protected List<Slice> slices;
+    protected List<Slice> subslices;
 
     // cache some values
     protected long count = -1;
@@ -29,20 +27,20 @@ public class MultiSlice extends Slice
     //////////////////////////////////////////////////
     // Constructor(s)
 
-    public MultiSlice(List<Slice> slices)
+    public MultiSlice(List<Slice> subslices)
             throws dap4.core.util.DapException
     {
         super();
         this.sort = Sort.Multi;
-        this.slices = slices;
+        this.subslices = subslices;
         finish();
         // provide values for first, last, etc
         this.first = UNDEFINED;
         this.stop = UNDEFINED;
         this.stride = UNDEFINED;
         this.maxsize = UNDEFINED;
-        for(int i = 0; i < this.slices.size(); i++) {
-            Slice s = this.slices.get(i);
+        for(int i = 0; i < this.subslices.size(); i++) {
+            Slice s = this.subslices.get(i);
             this.first = (this.first < 0 ? s.getFirst() : Math.min(this.first, s.getFirst()));
             this.stop = Math.max(this.stop, s.getStop());
             this.stride = Math.max(this.stride, s.getStride());
@@ -67,7 +65,7 @@ public class MultiSlice extends Slice
         if(o == null) return false;
         if(o instanceof Slice) try {
             List<Slice> tmp = new ArrayList<Slice>();
-            tmp.add((Slice)o);
+            tmp.add((Slice) o);
             o = new MultiSlice(tmp);
         } catch (dap4.core.util.DapException de) {
             throw new IllegalArgumentException();
@@ -75,16 +73,16 @@ public class MultiSlice extends Slice
         if(!(o instanceof MultiSlice)) return false;
         Slice other = (Slice) o;
         return other.getFirst() == getFirst()
-            && other.getLast() == getLast()
-            && other.getStride() == getStride();
+                && other.getLast() == getLast()
+                && other.getStride() == getStride();
     }
 
     @Override
     public int hashCode()
     {
         long accum = 0;
-        for(int i=0;i<slices.size();i++) {
-            Slice s = slices.get(i);
+        for(int i = 0; i < this.subslices.size(); i++) {
+            Slice s = this.subslices.get(i);
             accum += s.hashCode() * i;
         }
         return (int) accum;
@@ -95,10 +93,10 @@ public class MultiSlice extends Slice
     {
         StringBuilder buf = new StringBuilder();
         buf.append("[");
-        for(int i = 0; i < slices.size(); i++) {
+        for(int i = 0; i < this.subslices.size(); i++) {
             if(i > 0)
                 buf.append(",");
-            buf.append(slices.get(i).toString(false));
+            buf.append(this.subslices.get(i).toString(false));
         }
         buf.append("]");
         return buf.toString();
@@ -110,8 +108,8 @@ public class MultiSlice extends Slice
             throws dap4.core.util.DapException
     {
         this.maxsize = UNDEFINED;
-        for(int i = 0; i < slices.size(); i++) {// size is max size
-            Slice sl = this.slices.get(i);
+        for(int i = 0; i < this.subslices.size(); i++) {// size is max size
+            Slice sl = this.subslices.get(i);
             assert (sl.getSort() == Slice.Sort.Single);
             sl.finish();
             if(this.maxsize < sl.getMax())
@@ -119,12 +117,12 @@ public class MultiSlice extends Slice
         }
         if(this.maxsize < 0)
             throw new dap4.core.util.DapException("Cannot compute multislice size");
-        for(int i = 0; i < slices.size(); i++) {
-            this.slices.get(i).setMaxSize(this.maxsize);
+        for(int i = 0; i < this.subslices.size(); i++) {
+            this.subslices.get(i).setMaxSize(this.maxsize);
         }
         this.count = 0;
-        for(int i = 0; i < slices.size(); i++) {
-            count += this.slices.get(i).getCount();
+        for(int i = 0; i < this.subslices.size(); i++) {
+            count += this.subslices.get(i).getCount();
         }
         return this; // fluent interface
     }
@@ -132,11 +130,19 @@ public class MultiSlice extends Slice
     //////////////////////////////////////////////////
     // Accessors
 
+    @Override
     public List<Slice>
-    getSlices()
+    getSubSlices()
     {
-        return this.slices;
+        return this.subslices;
     }
+
+    public Slice
+    getSubSlice(int i)
+    {
+        return this.subslices.get(i);
+    }
+
 
     @Override
     public long
@@ -150,8 +156,8 @@ public class MultiSlice extends Slice
     setMaxSize(long size)
             throws DapException
     {
-        for(int i = 0; i < slices.size(); i++) {
-            slices.get(i).setMaxSize(size);
+        for(int i = 0; i < this.subslices.size(); i++) {
+            this.subslices.get(i).setMaxSize(size);
         }
         return this;
     }

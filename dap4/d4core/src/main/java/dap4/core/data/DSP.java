@@ -13,6 +13,7 @@ import dap4.core.util.Slice;
 import java.io.IOException;
 import java.nio.ByteOrder;
 import java.util.List;
+import java.util.Map;
 
 public interface DSP
 {
